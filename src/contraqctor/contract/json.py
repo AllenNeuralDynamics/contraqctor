@@ -390,7 +390,7 @@ class SoftwareEventsParams(ManyPydanticModelParams):
         default=aind_behavior_services.data_types.SoftwareEvent, init=False
     )
     encoding: str = "UTF-8"
-    index: Optional[str] = None
+    index: Optional[str] = "timestamp"
     column_names: Optional[dict[str, str]] = None
 
 
