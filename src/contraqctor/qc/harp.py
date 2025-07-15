@@ -127,8 +127,17 @@ class HarpDeviceTestSuite(Suite):
                 "Read dump is not complete. Some registers are missing.",
                 context={"missing_registers": missing_regs},
             )
+
+        def _try_get_last_read(r: HarpRegister) -> t.Optional[pd.DataFrame]:
+            """We will assume that all data is loaded. If not we will return None
+            Instead of raising an error, so that we can continue checking other registers."""
+            try:
+                return self._get_last_read(r)
+            except ValueError:
+                return None
+
         missing_read_dump = [
-            r.name for r in ds if not (r.name in expected_regs and (self._get_last_read(r) is not None))
+            r.name for r in ds if not (r.name in expected_regs and (_try_get_last_read(r) is not None))
         ]
         return (
             self.pass_test(True, "Read dump is complete")
@@ -157,6 +166,7 @@ class HarpDeviceTestSuite(Suite):
                 if len(requests) > 0:
                     requests = requests[requests.index >= op_ctr]
                     replies = replies[replies.index >= op_ctr]
+
                     if len(requests) != len(replies):
                         reg_error.append(
                             {"register": req_reg.name, "requests": len(requests), "responses": len(replies)}
@@ -176,11 +186,14 @@ class HarpDeviceTestSuite(Suite):
 
     def test_registers_are_monotonicity(self):
         """
-        Check that the all the harp device registers' timestamps are monotonic
+        Check that the all the harp device registers' timestamps are monotonic.
+        This test will not check registers that error'ed out during loading.
         """
         reg_errors = []
         reg: HarpRegister
         for reg in self.harp_device:
+            if not reg.has_data:
+                continue
             for message_type, reg_type_data in reg.data.groupby("MessageType", observed=True):
                 if not reg_type_data.index.is_monotonic_increasing:
                     reg_errors.append(
