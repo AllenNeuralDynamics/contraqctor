@@ -1249,6 +1249,7 @@ class Runner:
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
+        console: t.Optional[rich.console.Console] = None,
     ) -> t.Dict[t.Optional[str], t.List[Result]]:
         """Run all tests in all suites with a rich progress display.
 
@@ -1288,6 +1289,7 @@ class Runner:
             ```
         """
 
+        console = console or rich.console.Console()
         collected_tests = self._collect_tests()
         total_test_count = len(collected_tests)
 
@@ -1308,7 +1310,7 @@ class Runner:
             rich.progress.TimeElapsedColumn(),
         ]
 
-        with rich.progress.Progress(*progress_format) as progress:
+        with rich.progress.Progress(*progress_format, console=console) as progress:
             total_task = progress.add_task(
                 "[bold green]TOTAL PROGRESS".ljust(full_name_width + test_name_width + 5), total=total_test_count
             )
@@ -1362,6 +1364,7 @@ class Runner:
         self._results = collected_results
         if self._results:
             self._print_results(
+                console,
                 self._results,
                 render_description=render_description,
                 render_traceback=render_traceback,
@@ -1388,6 +1391,7 @@ class Runner:
 
     def _print_results(
         self,
+        console: Console,
         results: t.List[_TaggedResult],
         include: t.Set[Status] = set((Status.FAILED, Status.ERROR, Status.WARNING)),
         *,
@@ -1420,7 +1424,6 @@ class Runner:
         if not all_included_results:
             return
 
-        console = Console()
         console.print()
         self._print_status_header(console, include)
         console.print()
