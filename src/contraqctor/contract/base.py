@@ -11,6 +11,8 @@ from contraqctor import _typing
 
 @runtime_checkable
 class _AtProtocol(Protocol):
+    """Protocol for the "at" property"""
+
     _data_stream: "DataStreamCollectionBase[Any, Any]"
 
     def __call__(self, name: str) -> "DataStream": ...
@@ -308,11 +310,14 @@ TDataStream = TypeVar("TDataStream", bound=DataStream[Any, Any])
 
 
 class _At(Generic[TDataStream]):
+    """A class for accessing data streams by name using dot notation."""
 
     def __init__(self, data_stream: "DataStreamCollectionBase[TDataStream, Any]"):
+        """Initialize the At accessor."""
         self._data_stream = data_stream
 
     def __call__(self, name: str) -> TDataStream:
+        """Access a data stream by name."""
         if not self._data_stream.has_data:
             raise ValueError("data streams have not been read yet. Cannot access data streams.")
         try:
@@ -321,6 +326,7 @@ class _At(Generic[TDataStream]):
             raise KeyError(f"Stream with name: '{name}' not found in data streams.")
 
     def __dir__(self):
+        """List available attributes for the At accessor. This ensures autocompletion at runtime."""
         base = list(object.__dir__(self))
         if hasattr(self, "_data_stream") and hasattr(self._data_stream, "_hashmap"):
             h = list(self._data_stream._hashmap.keys())
@@ -329,6 +335,7 @@ class _At(Generic[TDataStream]):
             return base
 
     def __getattribute__(self, name: str) -> Any:
+        """Get an attribute by dot notation."""
         try:
             return object.__getattribute__(self, name)
         except AttributeError:
