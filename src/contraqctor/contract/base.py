@@ -1,12 +1,21 @@
 import abc
 import dataclasses
 import os
-from typing import Any, ClassVar, Dict, Generator, Generic, List, Optional, Self, TypeVar
+from typing import Any, ClassVar, Dict, Generator, Generic, List, Optional, Protocol, Self, TypeVar, runtime_checkable
 
 from semver import Version
 from typing_extensions import override
 
 from contraqctor import _typing
+
+
+@runtime_checkable
+class _AtProtocol(Protocol):
+    _data_stream: "DataStreamCollectionBase[Any, Any]"
+
+    def __call__(self, name: str) -> "DataStream": ...
+    def __dir__(self) -> list[str]: ...
+    def __getattribute__(self, name: str) -> Any: ...
 
 
 class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
@@ -147,7 +156,8 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         self._reader_params = params
         return self
 
-    def at(self, name: str) -> "DataStream":
+    @property
+    def at(self) -> _AtProtocol:
         """Get a child data stream by name.
 
         Args:
@@ -297,6 +307,37 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
 TDataStream = TypeVar("TDataStream", bound=DataStream[Any, Any])
 
 
+class _At(Generic[TDataStream]):
+
+    def __init__(self, data_stream: "DataStreamCollectionBase[TDataStream, Any]"):
+        self._data_stream = data_stream
+
+    def __call__(self, name: str) -> TDataStream:
+        if not self._data_stream.has_data:
+            raise ValueError("data streams have not been read yet. Cannot access data streams.")
+        try:
+            return self._data_stream._hashmap[name]
+        except KeyError:
+            raise KeyError(f"Stream with name: '{name}' not found in data streams.")
+
+    def __dir__(self):
+        base = list(object.__dir__(self))
+        if hasattr(self, "_data_stream") and hasattr(self._data_stream, "_hashmap"):
+            h = list(self._data_stream._hashmap.keys())
+            return h + base
+        else:
+            return base
+
+    def __getattribute__(self, name: str) -> Any:
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError:
+            _data_stream = object.__getattribute__(self, "_data_stream")
+            if name in _data_stream._hashmap:
+                return _data_stream._hashmap[name]
+            raise
+
+
 class DataStreamCollectionBase(
     DataStream[List[TDataStream], _typing.TReaderParams],
     Generic[TDataStream, _typing.TReaderParams],
@@ -325,6 +366,7 @@ class DataStreamCollectionBase(
         super().__init__(name=name, description=description, reader_params=reader_params, **kwargs)
         self._hashmap: Dict[str, TDataStream] = {}
         self._update_hashmap()
+        self._at = _At(self)
 
     def _update_hashmap(self) -> None:
         """Update the internal hashmap of child data streams.
@@ -352,6 +394,15 @@ class DataStreamCollectionBase(
         for stream in self._hashmap.values():
             stream._parent = self
 
+    @property
+    def at(self) -> _At[TDataStream]:
+        """Get the accessor for child data streams.
+
+        Returns:
+            _At: Accessor object for retrieving child streams by name.
+        """
+        return self._at
+
     @override
     def load(self):
         """Load data for this collection.
@@ -370,27 +421,6 @@ class DataStreamCollectionBase(
             raise ValueError("Data must be a list of DataStreams.")
         self._update_hashmap()
         return self
-
-    @override
-    def at(self, name: str) -> TDataStream:
-        """Get a child data stream by name.
-
-        Args:
-            name: Name of the child data stream to retrieve.
-
-        Returns:
-            TDataStream: The child data stream with the given name.
-
-        Raises:
-            ValueError: If data has not been loaded yet.
-            KeyError: If no child stream with the given name exists.
-        """
-        if not self.has_data:
-            raise ValueError("data streams have not been read yet. Cannot access data streams.")
-        if name in self._hashmap:
-            return self._hashmap[name]
-        else:
-            raise KeyError(f"Stream with name: '{name}' not found in data streams.")
 
     def __str__(self: Self) -> str:
         """Generate a formatted table representation of the collection.
