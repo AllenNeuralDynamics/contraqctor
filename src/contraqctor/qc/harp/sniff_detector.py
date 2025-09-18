@@ -74,7 +74,7 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         """
         super().__init__(harp_device)
         self.harp_device = harp_device
-        self.data: pd.DataFrame = self.harp_device["RawVoltage"].data
+        self.data: pd.DataFrame = self.harp_device["RawVoltage"].data.copy()
         self.data = self.data[self.data["MessageType"] == "EVENT"]["RawVoltage"]
         self.fs: float = self.harp_device["RawVoltageDispatchRate"].data.iloc[-1].values[0]
         self.quantization_ratio_thr = quantization_ratio_thr
