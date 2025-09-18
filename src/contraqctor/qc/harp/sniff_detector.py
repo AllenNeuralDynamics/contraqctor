@@ -11,13 +11,13 @@ from .harp_device import HarpDeviceTypeTestSuite
 
 
 class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
-    """Test suite for HARP Sniff Detector devices.
+    """Test suite for Harp Sniff Detector devices.
 
     Provides tests specific to the Sniff Detector device, including
     signal quality analysis and breathing rate detection.
 
     Attributes:
-        harp_device: The HARP Sniff Detector device to test.
+        harp_device: The Harp Sniff Detector device to test.
         data: The raw voltage data from the device.
         fs: The sampling frequency of the device.
         quantization_ratio_thr: Threshold for the quantization ratio test.
@@ -65,7 +65,7 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         """Initialize the Sniff Detector test suite.
 
         Args:
-            harp_device: The HARP Sniff Detector device to test.
+            harp_device: The Harp Sniff Detector device to test.
             quantization_ratio_thr: Threshold for the quantization ratio test. Defaults to 0.1.
             clustering_thr: Threshold for the clustering ratio test. Defaults to 0.05.
             clipping_thr: Threshold for the clipping detection test. Defaults to 0.05.

@@ -9,9 +9,9 @@ from ..base import Suite
 
 
 class HarpDeviceTestSuite(Suite):
-    """Test suite for generic HARP devices.
+    """Test suite for generic Harp devices.
 
-    Provides a set of standard tests that all HARP devices are expected to pass,
+    Provides a set of standard tests that all Harp devices are expected to pass,
     checking basic functionality and data integrity.
 
     Attributes:
@@ -43,7 +43,7 @@ class HarpDeviceTestSuite(Suite):
         *,
         min_core_version: t.Optional[str] = None,
     ):
-        """Initialize the HARP device test suite.
+        """Initialize the Harp device test suite.
 
         Args:
             harp_device: The HarpDevice data stream to test.
@@ -59,7 +59,7 @@ class HarpDeviceTestSuite(Suite):
     # ----------------
     @staticmethod
     def _get_whoami(device: HarpDevice) -> int:
-        """Get the WhoAmI identifier of a HARP device.
+        """Get the WhoAmI identifier of a Harp device.
 
         Args:
             device: The HarpDevice data stream.
@@ -71,7 +71,7 @@ class HarpDeviceTestSuite(Suite):
 
     @staticmethod
     def _get_last_read(harp_register: HarpRegister) -> t.Optional[pd.DataFrame]:
-        """Get the last READ message from a HARP register.
+        """Get the last READ message from a Harp register.
 
         Args:
             harp_register: The HarpRegister data stream.
@@ -276,14 +276,14 @@ class HarpDeviceTestSuite(Suite):
 
 
 class HarpHubTestSuite(Suite):
-    """Test suite for a hub of HARP devices.
+    """Test suite for a hub of Harp devices.
 
-    Tests a collection of HARP devices that share the same clock generator source,
+    Tests a collection of Harp devices that share the same clock generator source,
     verifying proper synchronization and configuration.
 
     Attributes:
-        clock_generator_device: The HARP device acting as the clock generator.
-        devices: List of subordinate HARP devices to test.
+        clock_generator_device: The Harp device acting as the clock generator.
+        devices: List of subordinate Harp devices to test.
         read_dump_jitter_threshold_s: Maximum allowed time difference for read dumps.
 
     Examples:
@@ -311,11 +311,11 @@ class HarpHubTestSuite(Suite):
         *,
         read_dump_jitter_threshold_s: t.Optional[float] = 0.05,
     ):
-        """Initialize the HARP hub test suite.
+        """Initialize the Harp hub test suite.
 
         Args:
-            clock_generator_device: The HARP device acting as the clock generator.
-            devices: List of HARP devices to test as part of the hub.
+            clock_generator_device: The Harp device acting as the clock generator.
+            devices: List of Harp devices to test as part of the hub.
             read_dump_jitter_threshold_s: Maximum allowed time difference (in seconds)
                 between devices' read dumps. Defaults to 0.05.
         """
@@ -348,7 +348,7 @@ class HarpHubTestSuite(Suite):
         """Get the timestamp of the last read dump for a device.
 
         Args:
-            device: The HARP device to check.
+            device: The Harp device to check.
 
         Returns:
             Optional[float]: The timestamp of the last read dump, or None if no read dump exists.
@@ -381,13 +381,13 @@ class HarpHubTestSuite(Suite):
 
 
 class HarpDeviceTypeTestSuite(Suite, abc.ABC):
-    """Base test suite for specific types of HARP devices.
+    """Base test suite for specific types of Harp devices.
 
     Abstract base class providing common functionality for testing
-    specific HARP device types with known WhoAmI identifiers.
+    specific Harp device types with known WhoAmI identifiers.
 
     Attributes:
-        harp_device: The HARP device to test.
+        harp_device: The Harp device to test.
         _WHOAMI: Class variable defining the expected WhoAmI value for this device type.
     """
 
@@ -397,7 +397,7 @@ class HarpDeviceTypeTestSuite(Suite, abc.ABC):
         """Initialize the device type test suite.
 
         Args:
-            harp_device: The HARP device to test.
+            harp_device: The Harp device to test.
         """
         self.harp_device = harp_device
 
