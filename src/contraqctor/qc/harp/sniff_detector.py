@@ -83,7 +83,7 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         self.sudden_jumps_thr = sudden_jumps_thr
         self.notch_filter_freq = notch_filter_freq
 
-    def test_sniff_detector_sampling_rate(self):
+    def test_sampling_rate(self):
         """Tests if the sampling rate of the sniff detector is within nominal values"""
         period = self.data.index.diff().dropna()
         mean_period = np.mean(period)
@@ -94,7 +94,7 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
             )
         return self.pass_test(dfps, f"Sampling rate is {dfps:.2f} Hz. Expected {self.fs} Hz")
 
-    def test_sniff_detector_signal_quality(self):
+    def test_signal_quality(self):
         """Tests the quality of the sniff detector signal by analyzing quantization, clustering, clipping, and sudden jumps."""
         metrics = {}
         TOTAL_SAMPLES = len(self.data)
@@ -132,7 +132,7 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
                 context=metrics,
             )
 
-    def test_sniff_detector_physiology(self):
+    def test_physiological_relevance(self):
         """Tests if the sniff detector is actually detecting sniffs by analyzing peaks in the signal."""
 
         t = self.data.index.values
