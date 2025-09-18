@@ -40,7 +40,7 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
     _WHOAMI = 1405
     _FULL_BIT_DEPTH = 2**12
     # from https://grants.nih.gov/grants/olaw/guide-for-the-care-and-use-of-laboratory-animals.pdf
-    temperature_limit = (20, 34)  # degrees Celsius
+    temperature_limit = (20, 26)  # degrees Celsius
     humidity_limit = (30, 70)  # percent
 
     @override
@@ -88,7 +88,7 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
         context.update(metrics)
 
         if (min_temp < self.temperature_limit[0]) or (max_temp > self.temperature_limit[1]):
-            return self.fail_test(
+            return self.warn_test(
                 metrics,
                 f"Temperature out of expected range ({self.temperature_limit[0]}-{self.temperature_limit[1]} °C)",
                 context=context,
@@ -121,7 +121,7 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
         context.update(metrics)
 
         if (min_humidity < self.humidity_limit[0]) or (max_humidity > self.humidity_limit[1]):
-            return self.fail_test(
+            return self.warn_test(
                 metrics,
                 f"Humidity out of expected range ({self.humidity_limit[0]}-{self.humidity_limit[1]} %)",
                 context=context,
