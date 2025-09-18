@@ -29,6 +29,7 @@ dependencies = [
     'requests',
     'rich',
     'semver',
+    'scipy',
     "opencv-python",
 ]
 
