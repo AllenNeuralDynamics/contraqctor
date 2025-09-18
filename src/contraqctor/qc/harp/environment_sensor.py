@@ -37,7 +37,7 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
         ```
     """
 
-    _WHOAMI = 1401
+    _WHOAMI = 1405
     _FULL_BIT_DEPTH = 2**12
     # from https://grants.nih.gov/grants/olaw/guide-for-the-care-and-use-of-laboratory-animals.pdf
     temperature_limit = (20, 34)  # degrees Celsius
