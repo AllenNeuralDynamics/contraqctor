@@ -184,25 +184,25 @@ class TestHarpSniffDetectorTestSuite:
     def test_sniff_detector_sampling_rate(self, mock_sniff_device, mock_sniff_device_bad_rate):
         """Test test_sniff_detector_sampling_rate method."""
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
-        result = suite.test_sniff_detector_sampling_rate()
+        result = suite.test_sampling_rate()
         assert result.status == Status.PASSED
         assert "Sampling rate is" in result.message
 
         suite = HarpSniffDetectorTestSuite(mock_sniff_device_bad_rate)
-        result = suite.test_sniff_detector_sampling_rate()
+        result = suite.test_sampling_rate()
         assert result.status == Status.FAILED
         assert "not within nominal values" in result.message
 
     def test_sniff_detector_signal_quality(self, mock_sniff_device, mock_sniff_device_bad_quality):
         """Test test_sniff_detector_signal_quality method."""
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
-        result = suite.test_sniff_detector_signal_quality()
+        result = suite.test_signal_quality()
         assert result.status == Status.PASSED
         assert "Signal quality is good" in result.message
         assert "context" in dir(result)
 
         suite = HarpSniffDetectorTestSuite(mock_sniff_device_bad_quality)
-        result = suite.test_sniff_detector_signal_quality()
+        result = suite.test_signal_quality()
         assert result.status == Status.FAILED
         assert "Signal quality is not good" in result.message
 
