@@ -123,7 +123,7 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         lick = self._get_distinct_from_channel(self.data, self._target_channel)
         first_lick_onset = lick[lick == 1].index[0]
         lick = lick[first_lick_onset:]
-        lick_durations = lick[~lick].index - lick[lick].index
+        lick_durations = lick[lick == 0].index - lick[lick == 1].index
 
         fig = plt.figure(figsize=(10, 4))
         short = fig.add_subplot(121)
