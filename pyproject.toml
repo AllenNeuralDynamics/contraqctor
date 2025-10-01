@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.8.22"]
+build-backend = "uv_build"
 
 [project]
 name = "contraqctor"
@@ -16,7 +16,8 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
 ]
 
-dynamic = ["version", "readme"]
+version = "0.4.9"
+readme = {file = "README.md", content-type = "text/markdown"}
 
 dependencies = [
     'aind_behavior_services',
@@ -40,8 +41,7 @@ Issues = "https://github.com/AllenNeuralDynamics/contraqctor/issues"
 Changelog = "https://github.com/AllenNeuralDynamics/contraqctor/releases"
 
 
-[project.optional-dependencies]
-
+[dependency-groups]
 
 dev = [
     'codespell',
@@ -59,15 +59,8 @@ docs = [
     'ruff',
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.dynamic]
-version = {attr = "contraqctor.__version__"}
-readme = { file = "README.md", content-type = "text/markdown" }
-
-[tool.setuptools.package-data]
-aind_behavior_task_launcher = ["py.typed"]
+[tool.uv]
+default-groups = ['dev']
 
 [tool.ruff]
 line-length = 120
