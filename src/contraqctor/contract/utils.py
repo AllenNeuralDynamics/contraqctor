@@ -8,6 +8,7 @@ _ICON_MAP = {
 
 
 def _get_node_icon(node: DataStream, show_missing_indicator: bool) -> str:
+    """Determines the icon for a data stream node based on its type and data presence."""
     node_icon = _ICON_MAP[node.is_collection]
     if not node.has_data and show_missing_indicator:
         node_icon += _ICON_MAP[None]
@@ -15,6 +16,7 @@ def _get_node_icon(node: DataStream, show_missing_indicator: bool) -> str:
 
 
 def _build_line_prefix(parents: list[bool], is_last: bool) -> str:
+    """Builds the line prefix for a node based on its position in the tree."""
     line_prefix = ""
     for parent_is_last in parents[:-1]:
         line_prefix += "    " if parent_is_last else "│   "
@@ -25,6 +27,7 @@ def _build_line_prefix(parents: list[bool], is_last: bool) -> str:
 
 
 def _build_node_label(node: DataStream, show_type: bool, show_params: bool) -> str:
+    """Builds the label for a data stream node, optionally including type and parameters."""
     node_label = node.name
     if show_type:
         node_label += f" [{node.__class__.__name__}]"
@@ -169,6 +172,7 @@ def _get_html_header() -> str:
 
 
 def _get_tooltip_text(node: DataStream) -> str:
+    """Generates the HTML content for a node's tooltip."""
     import html as html_module
 
     parts = []
