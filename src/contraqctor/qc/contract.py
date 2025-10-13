@@ -1,5 +1,6 @@
 import typing as t
 
+from .._typing import ErrorOnLoad
 from ..contract.base import DataStream
 from .base import Suite
 
@@ -36,9 +37,7 @@ class ContractTestSuite(Suite):
         ```
     """
 
-    def __init__(
-        self, loading_errors: list[tuple[DataStream, Exception]], exclude: t.Optional[list[DataStream]] = None
-    ):
+    def __init__(self, loading_errors: list[ErrorOnLoad], exclude: t.Optional[list[DataStream]] = None):
         """Initialize the contract test suite.
 
         Args:
@@ -51,9 +50,9 @@ class ContractTestSuite(Suite):
 
     def test_has_errors_on_load(self):
         """Check if any non-excluded data streams had loading errors."""
-        errors = [(ds, err) for ds, err in self.loading_errors if ds not in self.exclude]
+        errors = [err for err in self.loading_errors if err.data_stream not in self.exclude]
         if errors:
-            str_errors = "\n".join([f"{ds.resolved_name}" for ds, _ in errors])
+            str_errors = "\n".join([f"{err.data_stream.resolved_name}" for err in errors])
             return self.fail_test(
                 None,
                 f"The following DataStreams raised errors on load: \n {str_errors}",
@@ -64,7 +63,7 @@ class ContractTestSuite(Suite):
 
     def test_has_excluded_as_warnings(self):
         """Check if any excluded data streams had loading errors and report as warnings."""
-        warnings = [(ds, err) for ds, err in self.loading_errors if ds in self.exclude]
+        warnings = [err for err in self.loading_errors if err.data_stream in self.exclude]
         if warnings:
             return self.warn_test(
                 None,

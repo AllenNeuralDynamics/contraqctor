@@ -1,9 +1,8 @@
 import pytest
+from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
 from contraqctor.contract.base import DataStreamCollection
-
-from .conftest import SimpleDataStream, SimpleParams
 
 
 class TestDataStream:
