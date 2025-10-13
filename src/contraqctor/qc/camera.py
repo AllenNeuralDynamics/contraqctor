@@ -60,6 +60,7 @@ class CameraTestSuite(Suite):
         clock_jitter_s: float = 1e-4,
         start_time_s: t.Optional[float] = None,
         stop_time_s: t.Optional[float] = None,
+        saturation_bounds: tuple[t.Optional[int], t.Optional[int]] = (5, 250),
     ):
         """Initialize the camera test suite.
 
@@ -69,12 +70,14 @@ class CameraTestSuite(Suite):
             clock_jitter_s: Maximum allowed time difference between frame timestamps, in seconds.
             start_time_s: Optional expected start time for validation, in seconds.
             stop_time_s: Optional expected stop time for validation, in seconds.
+            saturation_bounds: Pixel intensity bounds to check for saturation (min, max).
         """
         self.data_stream: Camera = data_stream
         self.expected_fps = expected_fps
         self.clock_jitter_s = clock_jitter_s
         self.start_time_s = start_time_s
         self.stop_time_s = stop_time_s
+        self.saturation_bounds = saturation_bounds
 
     def test_metadata_shape(self):
         """
@@ -201,36 +204,62 @@ class CameraTestSuite(Suite):
                 return self.fail_test(None, "Failed to read a frame from the video")
             max_d = 2 ** (frame.dtype.itemsize * 8)
 
-            if frame.shape[2] == 1:
-                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-            elif frame.shape[2] == 3:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            else:
-                return self.fail_test(None, f"Frame has unexpected number of channels({frame.shape[2]}).")
+            fig, ax = plt.subplots(2, frame.shape[2], figsize=(15, 7))
 
-            hist_r = cv2.calcHist([frame], [0], None, [max_d], [0, max_d])
-            hist_g = cv2.calcHist([frame], [1], None, [max_d], [0, max_d])
-            hist_b = cv2.calcHist([frame], [2], None, [max_d], [0, max_d])
-
-            hist_r /= hist_r.sum()
-            hist_g /= hist_g.sum()
-            hist_b /= hist_b.sum()
-
-            fig, ax = plt.subplots(1, 2, figsize=(15, 5))
-
-            ax[0].imshow(frame)
-            ax[0].axis("off")
-            ax[0].set_title("Frame from video")
-            ax[1].plot(hist_r, color="red", label="Red")
-            ax[1].plot(hist_g, color="green", label="Green")
-            ax[1].plot(hist_b, color="blue", label="Blue")
-            ax[1].set_xlim([0, max_d])
-            ax[1].set_xlabel("Pixel Value")
-            ax[1].set_ylabel("Normalized Frequency")
-            ax[1].set_title("Color Histogram")
-            ax[1].legend()
+            for channel in range(frame.shape[2]):
+                hist = cv2.calcHist([frame], [channel], None, [max_d], [0, max_d])
+                hist /= hist.sum()
+                ax[0, channel].imshow(frame[:, :, channel], cmap="gray")
+                ax[0, channel].axis("off")
+                ax[1, channel].plot(hist, color="k", label=f"Channel-{channel}")
+                ax[1, channel].set_xlim([0, max_d])
+                ax[1, channel].set_xlabel("Pixel Value")
+                ax[1, channel].set_ylabel("Normalized Frequency")
+                ax[1, channel].set_title(f"Histogram channel-{channel}")
             fig.tight_layout()
 
+        return self.pass_test(
+            None, "Histogram and asset created successfully.", context=ContextExportableObj.as_context(fig)
+        )
+
+    def test_create_pixel_saturation_visualizer(self):
+        data = self.data_stream.data
+        if not data.has_video:
+            return self.skip_test("No video data available. Skipping test.")
+
+        with data.as_video_capture() as video:
+            video.set(cv2.CAP_PROP_POS_FRAMES, video.get(cv2.CAP_PROP_FRAME_COUNT) // 2)
+            ret, frame = video.read()
+
+            if not ret:
+                return self.fail_test(None, "Failed to read a frame from the video")
+
+            lower_bound, upper_bound = self.saturation_bounds
+
+            fig, ax = plt.subplots(1, frame.shape[2], figsize=(15, 5))
+
+            for channel in range(frame.shape[2]):
+                channel_data = frame[:, :, channel]
+
+                channel_saturated = np.zeros(frame.shape[:2], dtype=bool)
+                channel_underexposed = np.zeros(frame.shape[:2], dtype=bool)
+
+                if upper_bound is not None:
+                    channel_saturated = channel_data >= upper_bound
+                if lower_bound is not None:
+                    channel_underexposed = channel_data <= lower_bound
+
+                # Create RGB image: grayscale with saturated pixels in red and underexposed in blue
+                colored_frame = np.stack([channel_data, channel_data, channel_data], axis=-1)
+                colored_frame[channel_saturated] = [255, 0, 0]  # Red for saturated
+                colored_frame[channel_underexposed] = [0, 0, 255]  # Blue for underexposed
+
+                ax[channel].imshow(colored_frame)
+                ax[channel].axis("off")
+                ax[channel].set_title(f"Channel-{channel}")
+
+            fig.tight_layout()
+            fig.suptitle("Pixel Saturation Visualization")
             return self.pass_test(
                 None, "Histogram and asset created successfully.", context=ContextExportableObj.as_context(fig)
             )
