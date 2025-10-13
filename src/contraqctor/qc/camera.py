@@ -225,6 +225,7 @@ class CameraTestSuite(Suite):
         )
 
     def test_create_pixel_saturation_visualizer(self):
+        """Creates a visualization highlighting saturated and underexposed pixels in the video frame."""
         data = self.data_stream.data
         if not data.has_video:
             return self.skip_test("No video data available. Skipping test.")
@@ -259,6 +260,7 @@ class CameraTestSuite(Suite):
                 ax[channel].imshow(colored_frame)
                 ax[channel].axis("off")
                 ax[channel].set_title(f"Channel-{channel}")
+
             fig.subplots_adjust(top=0.9)  # Leave space for suptitle
             fig.suptitle("Pixel Saturation Visualization (bounds: {})".format(self.saturation_bounds))
             fig.tight_layout()
