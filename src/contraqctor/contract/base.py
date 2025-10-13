@@ -1,7 +1,20 @@
 import abc
 import dataclasses
 import os
-from typing import Any, ClassVar, Dict, Generator, Generic, List, Optional, Protocol, Self, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Generator,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    Self,
+    TypeVar,
+    cast,
+    runtime_checkable,
+)
 
 from semver import Version
 from typing_extensions import override
@@ -201,7 +214,16 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         Returns:
             bool: True if data has been loaded, False otherwise.
         """
-        return not _typing.is_unset(self._data)
+        return not (_typing.is_unset(self._data) or self.has_error)
+
+    @property
+    def has_error(self) -> bool:
+        """Check if the data stream encountered an error during loading.
+
+        Returns:
+            bool: True if an error occurred, False otherwise.
+        """
+        return isinstance(self._data, _typing.ErrorOnLoad)
 
     @property
     def data(self) -> _typing.TData:
@@ -213,9 +235,22 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         Raises:
             ValueError: If data has not been loaded yet.
         """
+        if self.has_error:
+            cast(_typing.ErrorOnLoad, self._data).raise_from_error()
         if not self.has_data:
             raise ValueError("Data has not been loaded yet.")
-        return self._data
+        return cast(_typing.TData, self._data)
+
+    def clear(self) -> Self:
+        """Clear the loaded data from the data stream.
+
+        Resets the data to an unset state, allowing for reloading.
+
+        Returns:
+            Self: The data stream instance for method chaining.
+        """
+        self._data = _typing.UnsetData
+        return self
 
     def load(self) -> Self:
         """Load data into the data stream.
@@ -239,7 +274,10 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             print(f"Loaded {len(df)} rows")
             ```
         """
-        self._data = self.read()
+        try:
+            self._data = self.read()
+        except Exception as e:  # pylint: disable=broad-except
+            self._data = _typing.ErrorOnLoad(self, exception=e)
         return self
 
     def __str__(self):
@@ -266,9 +304,27 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         Yields:
             DataStream: Child data streams (none for base DataStream).
         """
-        yield
+        return
+        yield  # This line is unreachable but needed for the generator type
 
-    def load_all(self, strict: bool = False) -> list[tuple["DataStream", Exception], None, None]:
+    def collect_errors(self) -> List[_typing.ErrorOnLoad]:
+        """Collect all errors from this stream and its children.
+
+        Performs a depth-first traversal to gather all ErrorOnLoad instances.
+
+        Returns:
+            List[ErrorOnLoad]: List of all errors raised on load encountered in the hierarchy.
+        """
+        errors = []
+        if self.has_error:
+            errors.append(cast(_typing.ErrorOnLoad, self._data))
+        for stream in self:
+            if stream is None:
+                continue
+            errors.extend(stream.collect_errors())
+        return errors
+
+    def load_all(self, strict: bool = False) -> Self:
         """Recursively load this data stream and all child streams.
 
         Performs depth-first traversal to load all streams in the hierarchy.
@@ -293,17 +349,13 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             ```
         """
         self.load()
-        exceptions = []
         for stream in self:
             if stream is None:
                 continue
-            try:
-                exceptions += stream.load_all(strict=strict)
-            except Exception as e:
-                if strict:
-                    raise e
-                exceptions.append((stream, e))
-        return exceptions
+            stream.load_all(strict=strict)
+            if stream.has_error and strict:
+                cast(_typing.ErrorOnLoad, stream.data).raise_from_error()
+        return self
 
 
 TDataStream = TypeVar("TDataStream", bound=DataStream[Any, Any])
@@ -411,7 +463,7 @@ class DataStreamCollectionBase(
         return self._at
 
     @override
-    def load(self):
+    def load(self) -> Self:
         """Load data for this collection.
 
         Overrides the base method to add validation that loaded data is a list of DataStreams.

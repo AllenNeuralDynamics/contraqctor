@@ -1,8 +1,13 @@
-from typing import Any, Generic, Protocol, TypeAlias, TypeVar, Union, cast, final
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeAlias, TypeVar, Union, cast, final
+
+if TYPE_CHECKING:
+    from contraqctor.contract.base import DataStream
+else:
+    DataStream = Any  # type: ignore
 
 # Type variables
-TData = TypeVar("TData", bound=Union[Any, "_UnsetData"])
-"""TypeVar: Type variable bound to Union[Any, "_UnsetData"] for data types."""
+TData = TypeVar("TData", bound=Union[Any, "_UnsetData", "ErrorOnLoad"])
+"""TypeVar: Type variable bound to Union[Any, "_UnsetData", "ErrorOnLoad"] for data types."""
 
 TReaderParams = TypeVar("TReaderParams", contravariant=True)
 """TypeVar: Contravariant type variable for reader parameters."""
@@ -157,3 +162,42 @@ def is_unset(obj: Any) -> bool:
         True if the object is an unset sentinel value, False otherwise.
     """
     return (obj is UnsetReader) or (obj is UnsetParams) or (obj is UnsetData)
+
+
+@final
+class ErrorOnLoad:
+    """A class representing data that failed to load due to an error.
+
+    Attributes:
+        datastream: The data stream that failed to load.
+        error: The exception that occurred during data loading.
+
+    This class is used to encapsulate information about data loading failures,
+    allowing for graceful handling of errors in data processing workflows.
+    """
+
+    def __init__(self, data_stream: "DataStream", exception: Exception | None = None):
+        self._data_stream = data_stream
+        self._exception = exception
+
+    @property
+    def data_stream(self) -> "DataStream":
+        """The data stream that failed to load."""
+        return self._data_stream
+
+    @property
+    def exception(self) -> Exception | None:
+        """The exception that occurred during data loading, if any."""
+        return self._exception
+
+    def __repr__(self):
+        return f"<ErrorData stream={self.data_stream} error={self.exception}>"
+
+    def raise_from_error(self):
+        """Raises the stored error if it exists.
+
+        Raises:
+            The stored exception if it is not None.
+        """
+        if self.exception is not None:
+            raise self.exception
