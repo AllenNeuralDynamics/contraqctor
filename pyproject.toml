@@ -5,9 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "contraqctor"
 description = "A library for managing data contracts and quality control in behavioral datasets."
-authors = [
-    { name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org" },
-]
+authors = [{ name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org" }]
 requires-python = ">=3.11"
 license = "MIT"
 
@@ -42,13 +40,7 @@ Changelog = "https://github.com/AllenNeuralDynamics/contraqctor/releases"
 
 [dependency-groups]
 
-dev = [
-    'codespell',
-    'pytest',
-    'pytest-cov',
-    'ruff',
-    'interrogate'
-]
+dev = ['codespell', 'pytest', 'pytest-cov', 'ruff', 'interrogate']
 
 docs = [
     'mkdocs',
@@ -81,10 +73,19 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+env = ["MPLBACKEND=Agg"]
 
 [tool.interrogate]
 ignore-init-method = true
 ignore-magic = true
 ignore_module = true
 fail-under = 100
-exclude = ["__init__.py", "tests", "docs", "build", "setup.py", "examples", "site"]
+exclude = [
+    "__init__.py",
+    "tests",
+    "docs",
+    "build",
+    "setup.py",
+    "examples",
+    "site",
+]
