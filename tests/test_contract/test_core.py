@@ -225,7 +225,7 @@ class TestLoadAllChildren:
         collection = DataStreamCollection(name="collection", data_streams=[stream1, stream2])
 
         result = collection.load_all()
-        assert result == []  # No exceptions
+        assert result.collect_errors() == []
         assert stream1.has_data
         assert stream2.has_data
 
@@ -239,10 +239,10 @@ class TestLoadAllChildren:
         collection = DataStreamCollection(name="collection", data_streams=[stream1, stream2])
 
         result = collection.load_all()
-
-        assert len(result) == 1
-        assert result[0][0] == stream2
-        assert isinstance(result[0][1], FileNotFoundError)
+        errors = result.collect_errors()
+        assert len(errors) == 1
+        assert errors[0].data_stream == stream2
+        assert isinstance(errors[0].exception, FileNotFoundError)
 
         assert stream1.has_data
         assert not stream2.has_data

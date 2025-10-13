@@ -188,7 +188,7 @@ class ErrorOnLoad:
     @property
     def exception(self) -> Exception | None:
         """The exception that occurred during data loading, if any."""
-        return self.exception
+        return self._exception
 
     def __repr__(self):
         return f"<ErrorData stream={self.data_stream} error={self.exception}>"
