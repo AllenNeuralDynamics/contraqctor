@@ -216,6 +216,8 @@ class CameraTestSuite(Suite):
                 ax[1, channel].set_xlabel("Pixel Value")
                 ax[1, channel].set_ylabel("Normalized Frequency")
                 ax[1, channel].set_title(f"Histogram channel-{channel}")
+            fig.subplots_adjust(top=0.9)  # Leave space for suptitle
+            fig.suptitle("Pixel value histogram")
             fig.tight_layout()
 
         return self.pass_test(
@@ -257,9 +259,10 @@ class CameraTestSuite(Suite):
                 ax[channel].imshow(colored_frame)
                 ax[channel].axis("off")
                 ax[channel].set_title(f"Channel-{channel}")
-
+            fig.subplots_adjust(top=0.9)  # Leave space for suptitle
+            fig.suptitle("Pixel Saturation Visualization (bounds: {})".format(self.saturation_bounds))
             fig.tight_layout()
-            fig.suptitle("Pixel Saturation Visualization")
+
             return self.pass_test(
                 None, "Histogram and asset created successfully.", context=ContextExportableObj.as_context(fig)
             )
