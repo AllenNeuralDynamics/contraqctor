@@ -1,7 +1,7 @@
 [![contraqctor](./assets/logo-letter.svg)](https://allenneuraldynamics.github.io/contraqctor/)
 
 [![contraqctor](https://tinyurl.com/zf46ufwa)](https://allenneuraldynamics.github.io/contraqctor/)
-![CI](https://github.com/AllenNeuralDynamics/contraqctor/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/AllenNeuralDynamics/contraqctor/actions/workflows/contraqctor.yml/badge.svg)
 [![PyPI - Version](https://img.shields.io/pypi/v/contraqctor)](https://pypi.org/project/contraqctor/)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)

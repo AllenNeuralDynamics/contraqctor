@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import typing as t
 from pathlib import Path
@@ -7,6 +8,7 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
+os.environ["MPLBACKEND"] = "Agg"
 from contraqctor.contract.base import (
     DataStream,
     FilePathBaseParam,

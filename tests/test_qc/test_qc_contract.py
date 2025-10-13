@@ -1,38 +1,37 @@
 import pytest
+from conftest import SimpleDataStream, SimpleParams
 
-from contraqctor.contract.base import DataStream
+from contraqctor._typing import ErrorOnLoad
+from contraqctor.contract.base import DataStreamCollection
 from contraqctor.qc.base import Status
 from contraqctor.qc.contract import ContractTestSuite
 
 
-class MockDataStream(DataStream):
-    """Mock DataStream class for testing."""
+def raise_value_error(*args, **kwargs):
+    raise ValueError("Simulated load error")
 
-    def __init__(self, name="test"):
-        super().__init__(name=name)
-        self._resolved_name = name
 
-    @property
-    def resolved_name(self):
-        return self._resolved_name
+def raise_io_error(*args, **kwargs):
+    raise IOError("Simulated load error")
 
 
 @pytest.fixture
-def loading_errors():
-    ds1 = MockDataStream(name="stream1")
-    ds2 = MockDataStream(name="stream2")
-    ds3 = MockDataStream(name="stream3")
+def loading_errors(text_file) -> list[ErrorOnLoad]:
+    stream1 = SimpleDataStream(name="stream1", reader_params=SimpleParams(path=text_file))
+    stream1._reader = raise_value_error
 
-    err1 = ValueError("Error loading stream1")
-    err2 = FileNotFoundError("File not found for stream2")
-    err3 = RuntimeError("Error in stream3")
+    stream2 = SimpleDataStream(name="stream2", reader_params=SimpleParams(path=text_file))
+    stream2._reader = raise_io_error
 
-    return [(ds1, err1), (ds2, err2), (ds3, err3)]
+    collection = DataStreamCollection(name="collection", data_streams=[stream1, stream2])
+
+    collection.load_all()
+    return collection.collect_errors()
 
 
 @pytest.fixture
 def excluded_streams(loading_errors):
-    return [loading_errors[0][0]]
+    return [loading_errors[0].data_stream]
 
 
 class TestContractTestSuite:
@@ -54,7 +53,9 @@ class TestContractTestSuite:
         result = suite.test_has_errors_on_load()
 
         assert result.status == Status.FAILED
+        assert result.message is not None
         assert "raised errors on load" in result.message
+        assert result.context is not None
         assert "errors" in result.context
         assert len(result.context["errors"]) == len(loading_errors)
 
@@ -64,6 +65,7 @@ class TestContractTestSuite:
         result = suite.test_has_errors_on_load()
 
         assert result.status == Status.PASSED
+        assert result.message is not None
         assert "All DataStreams loaded successfully" in result.message
 
     def test_has_errors_on_load_with_excludes(self, loading_errors, excluded_streams):
@@ -72,11 +74,12 @@ class TestContractTestSuite:
         result = suite.test_has_errors_on_load()
 
         assert result.status == Status.FAILED
+        assert result.context is not None
         assert "errors" in result.context
         assert len(result.context["errors"]) == len(loading_errors) - len(excluded_streams)
         excluded_names = [ds.resolved_name for ds in excluded_streams]
-        for ds, _ in result.context["errors"]:
-            assert ds.resolved_name not in excluded_names
+        for err in result.context["errors"]:
+            assert err.data_stream.resolved_name not in excluded_names
 
     def test_has_excluded_as_warnings_with_excludes(self, loading_errors, excluded_streams):
         """Test test_has_excluded_as_warnings method with excluded streams."""
@@ -84,10 +87,11 @@ class TestContractTestSuite:
         result = suite.test_has_excluded_as_warnings()
 
         assert result.status == Status.WARNING
+        assert result.context is not None
         assert "warnings" in result.context
         assert len(result.context["warnings"]) == len(excluded_streams)
-        for ds, _ in result.context["warnings"]:
-            assert ds in excluded_streams
+        for err in result.context["warnings"]:
+            assert err.data_stream in excluded_streams
 
     def test_has_excluded_as_warnings_no_excludes(self, loading_errors):
         """Test test_has_excluded_as_warnings method with no excluded streams."""
@@ -95,6 +99,7 @@ class TestContractTestSuite:
         result = suite.test_has_excluded_as_warnings()
 
         assert result.status == Status.PASSED
+        assert result.message is not None
         assert "No excluded DataStreams raised errors" in result.message
 
     def test_has_excluded_as_warnings_empty_errors(self, excluded_streams):
@@ -103,4 +108,5 @@ class TestContractTestSuite:
         result = suite.test_has_excluded_as_warnings()
 
         assert result.status == Status.PASSED
+        assert result.message is not None
         assert "No excluded DataStreams raised errors" in result.message

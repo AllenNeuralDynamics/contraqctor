@@ -1,9 +1,8 @@
 import pytest
+from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
 from contraqctor.contract.base import DataStreamCollection
-
-from .conftest import SimpleDataStream, SimpleParams
 
 
 class TestDataStream:
@@ -75,6 +74,19 @@ class TestDataStream:
             SimpleDataStream(
                 name="test::invalid", description="Test stream", reader_params=SimpleParams(path=text_file)
             )
+
+    def test_clear_data(self, text_file):
+        """Test clearing loaded data."""
+        stream = SimpleDataStream(name="test", reader_params=SimpleParams(path=text_file))
+
+        stream.load()
+        assert stream.has_data
+
+        stream.clear()
+        assert not stream.has_data
+
+        with pytest.raises(ValueError):
+            _ = stream.data  # Accessing data after clearing should raise ValueError
 
 
 class TestDataStreamCollection:
@@ -225,7 +237,7 @@ class TestLoadAllChildren:
         collection = DataStreamCollection(name="collection", data_streams=[stream1, stream2])
 
         result = collection.load_all()
-        assert result == []  # No exceptions
+        assert result.collect_errors() == []
         assert stream1.has_data
         assert stream2.has_data
 
@@ -239,13 +251,16 @@ class TestLoadAllChildren:
         collection = DataStreamCollection(name="collection", data_streams=[stream1, stream2])
 
         result = collection.load_all()
-
-        assert len(result) == 1
-        assert result[0][0] == stream2
-        assert isinstance(result[0][1], FileNotFoundError)
+        errors = result.collect_errors()
+        assert len(errors) == 1
+        assert errors[0].data_stream == stream2
+        assert isinstance(errors[0].exception, FileNotFoundError)
 
         assert stream1.has_data
         assert not stream2.has_data
+
+        with pytest.raises(FileNotFoundError):
+            raise errors[0].exception
 
     def test_load_all_strict(self, text_file, temp_dir):
         """Test load_all with strict=True."""

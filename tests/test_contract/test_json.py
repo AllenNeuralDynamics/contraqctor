@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+from conftest import MockModel
 
 from contraqctor.contract.json import (
     Json,
@@ -11,8 +12,6 @@ from contraqctor.contract.json import (
     PydanticModel,
     PydanticModelParams,
 )
-
-from .conftest import MockModel
 
 
 class TestJson:
