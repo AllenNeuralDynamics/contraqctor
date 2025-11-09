@@ -59,7 +59,7 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         name: str,
         *,
         description: Optional[str] = None,
-        reader_params: Optional[_typing.TReaderParams] = None,
+        reader_params: _typing.TReaderParams = _typing.UnsetParams,
         **kwargs,
     ) -> None:
         if "::" in name:
@@ -67,7 +67,7 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         self._name = name
 
         self._description = description
-        self._reader_params = reader_params if reader_params is not None else _typing.UnsetParams
+        self._reader_params = reader_params
         self._data = _typing.UnsetData
         self._parent: Optional["DataStream"] = None
 
