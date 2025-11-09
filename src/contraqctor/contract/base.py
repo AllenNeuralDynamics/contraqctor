@@ -1,6 +1,8 @@
 import abc
+import contextvars
 import dataclasses
 import os
+from contextlib import contextmanager
 from typing import (
     Any,
     ClassVar,
@@ -20,6 +22,50 @@ from semver import Version
 from typing_extensions import override
 
 from contraqctor import _typing
+
+_implicit_loading = contextvars.ContextVar("implicit_loading", default=True)
+
+
+@contextmanager
+def implicit_loading(value: bool = True):
+    """Context manager to control whether streams automatically load data on access.
+
+    When enabled, data streams will automatically load their data when accessed. When disabled,
+    accessing a data stream without prior loading will raise an error. Call `load()` explicitly
+    instead.
+
+    Args:
+        value: True to enable auto-loading, False to disable. Default is True.
+
+    Examples:
+        ```python
+        # Assume you have nested collections already created
+        # collection.at("sensors").at("temperature") -> temperature sensor data
+        # collection.at("sensors").at("humidity") -> humidity sensor data
+        # collection.at("logs").at("error_log") -> error log file
+
+        # With implicit loading enabled (default behavior)
+        with implicit_loading(True):
+            # Data loads automatically on access
+            temp_data = collection.at("sensors").at("temperature").data
+            humidity_data = collection.at("sensors").at("humidity").data
+
+        # With implicit loading disabled - requires explicit loading
+        with implicit_loading(False):
+            # This would raise ValueError: "Data has not been loaded yet"
+            try:
+                temp_data = collection.at("sensors").at("temperature").data
+            except ValueError:
+                # Must load explicitly first
+                collection.load_all()
+                temp_data = collection.at("sensors").at("temperature").data
+        ```
+    """
+    token = _implicit_loading.set(value)
+    try:
+        yield
+    finally:
+        _implicit_loading.reset(token)
 
 
 @runtime_checkable
@@ -92,9 +138,9 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         """
         builder = self.name
         d = self
-        while d._parent is not None:
-            builder = f"{d._parent.name}::{builder}"
-            d = d._parent
+        while d.parent is not None:
+            builder = f"{d.parent.name}::{builder}"
+            d = d.parent
         return builder
 
     @property
@@ -114,6 +160,14 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             Optional[DataStream]: Parent data stream, or None if this is a root stream.
         """
         return self._parent
+
+    def set_parent(self, parent: "DataStream") -> None:
+        """Set the parent data stream.
+
+        Args:
+            parent: The parent data stream to set.
+        """
+        self._parent = parent
 
     @property
     def is_collection(self) -> bool:
@@ -235,10 +289,25 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         Raises:
             ValueError: If data has not been loaded yet.
         """
+        return self._solve_data_load()
+
+    def _solve_data_load(self) -> _typing.TData:
+        """Resolve data loading based on the current state and implicit loading setting."""
+        if self.has_data:
+            return cast(_typing.TData, self._data)
+
+        # If there is an error we do not auto load
+        # and instead raise the existing error
+        # We use .load() to explicitly retry loading
+        if (not self.has_error) and _implicit_loading.get():
+            self.load()
+
         if self.has_error:
             cast(_typing.ErrorOnLoad, self._data).raise_from_error()
-        if not self.has_data:
+
+        if not (self.has_data):
             raise ValueError("Data has not been loaded yet.")
+
         return cast(_typing.TData, self._data)
 
     def clear(self) -> Self:
@@ -293,7 +362,7 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             f"name={self._name}, "
             f"description={self._description}, "
             f"reader_params={self._reader_params}, "
-            f"data_type={self._data.__class__.__name__ if self.has_data else 'Not Loaded'}"
+            f"data_type={self.data.__class__.__name__ if self.has_data else 'Data not loaded'}"
         )
 
     def __iter__(self) -> Generator["DataStream", None, None]:
@@ -370,18 +439,19 @@ class _At(Generic[TDataStream]):
 
     def __call__(self, name: str) -> TDataStream:
         """Access a data stream by name."""
-        if not self._data_stream.has_data:
-            raise ValueError("data streams have not been read yet. Cannot access data streams.")
+
+        self._data_stream._solve_data_load()
+
         try:
-            return self._data_stream._hashmap[name]
-        except KeyError:
-            raise KeyError(f"Stream with name: '{name}' not found in data streams.")
+            return self._data_stream._data_stream_mapping[name]
+        except KeyError as exc:
+            raise KeyError(f"Stream with name: '{name}' not found in data streams.") from exc
 
     def __dir__(self):
         """List available attributes for the At accessor. This ensures autocompletion at runtime."""
         base = list(object.__dir__(self))
-        if hasattr(self, "_data_stream") and hasattr(self._data_stream, "_hashmap"):
-            h = list(self._data_stream._hashmap.keys())
+        if hasattr(self, "_data_stream") and hasattr(self._data_stream, "_data_stream_mapping"):
+            h = list(self._data_stream._data_stream_mapping.keys())
             return h + base
         else:
             return base
@@ -392,8 +462,9 @@ class _At(Generic[TDataStream]):
             return object.__getattribute__(self, name)
         except AttributeError:
             _data_stream = object.__getattribute__(self, "_data_stream")
-            if name in _data_stream._hashmap:
-                return _data_stream._hashmap[name]
+            if name in _data_stream._data_stream_mapping:
+                # Redirect to __call__ to get the stream by name
+                return self.__call__(name)
             raise
 
 
@@ -423,12 +494,12 @@ class DataStreamCollectionBase(
         **kwargs,
     ) -> None:
         super().__init__(name=name, description=description, reader_params=reader_params, **kwargs)
-        self._hashmap: Dict[str, TDataStream] = {}
-        self._update_hashmap()
+        self._data_stream_mapping: Dict[str, TDataStream] = {}
+        self._update_data_stream_mapping()
         self._at = _At(self)
 
-    def _update_hashmap(self) -> None:
-        """Update the internal hashmap of child data streams.
+    def _update_data_stream_mapping(self) -> None:
+        """Update the internal mapping of name: child data streams.
 
         Validates that all child streams have unique names and updates the lookup table.
 
@@ -437,11 +508,11 @@ class DataStreamCollectionBase(
         """
         if not self.has_data:
             return
-        stream_keys = [stream.name for stream in self.data]
+        stream_keys = [stream.name for stream in self._data]
         duplicates = [name for name in stream_keys if stream_keys.count(name) > 1]
         if duplicates:
             raise ValueError(f"Duplicate names found in the data stream collection: {set(duplicates)}")
-        self._hashmap = {stream.name: stream for stream in self.data}
+        self._data_stream_mapping = {stream.name: stream for stream in self._data}
         self._update_parent_references()
         return
 
@@ -450,8 +521,8 @@ class DataStreamCollectionBase(
 
         Sets this collection as the parent for all child streams.
         """
-        for stream in self._hashmap.values():
-            stream._parent = self
+        for stream in self._data_stream_mapping.values():
+            stream.set_parent(self)
 
     @property
     def at(self) -> _At[TDataStream]:
@@ -478,7 +549,7 @@ class DataStreamCollectionBase(
         if not isinstance(self._data, list):
             self._data = _typing.UnsetData
             raise ValueError("Data must be a list of DataStreams.")
-        self._update_hashmap()
+        self._update_data_stream_mapping()
         return self
 
     def __str__(self: Self) -> str:
@@ -494,9 +565,13 @@ class DataStreamCollectionBase(
         if not self.has_data:
             return f"{self.__class__.__name__} has not been loaded yet."
 
-        for key, value in self._hashmap.items():
+        for key, value in self._data_stream_mapping.items():
             table.append(
-                [key, value.data.__class__.__name__ if value.has_data else "Unknown", "Yes" if value.has_data else "No"]
+                [
+                    key,
+                    value.data.__class__.__name__ if value.has_data else "Unknown",
+                    "Yes" if value.has_data else "No",
+                ]
             )
 
         max_lengths = [max(len(str(row[i])) for row in table) for i in range(len(table[0]))]
@@ -519,8 +594,9 @@ class DataStreamCollectionBase(
             DataStream: Child data streams.
 
         """
-        for value in self._hashmap.values():
-            yield value
+        # We intentionally yield from self.data to trigger
+        # automatic loading if needed
+        yield from self.data
 
     def iter_all(self) -> Generator[DataStream, None, None]:
         """Iterator for all child data streams, including nested collections.
@@ -627,7 +703,7 @@ class DataStreamCollection(DataStreamCollectionBase[DataStream, _typing.UnsetPar
         if self.has_data:
             raise ValueError("Data streams are already set. Cannot bind again.")
         self._data = data_streams
-        self._update_hashmap()
+        self._update_data_stream_mapping()
         return self
 
     def add_stream(self, stream: DataStream) -> Self:
@@ -660,14 +736,14 @@ class DataStreamCollection(DataStreamCollectionBase[DataStream, _typing.UnsetPar
         """
         if not self.has_data:
             self._data = [stream]
-            self._update_hashmap()
+            self._update_data_stream_mapping()
             return self
 
-        if stream.name in self._hashmap:
+        if stream.name in self._data_stream_mapping:
             raise KeyError(f"Stream with name: '{stream.name}' already exists in data streams.")
 
         self._data.append(stream)
-        self._update_hashmap()
+        self._update_data_stream_mapping()
         return self
 
     def remove_stream(self, name: str) -> None:
@@ -683,10 +759,10 @@ class DataStreamCollection(DataStreamCollectionBase[DataStream, _typing.UnsetPar
         if not self.has_data:
             raise ValueError("Data streams have not been read yet. Cannot access data streams.")
 
-        if name not in self._hashmap:
+        if name not in self._data_stream_mapping:
             raise KeyError(f"Data stream with name '{name}' not found in data streams.")
-        self._data.remove(self._hashmap[name])
-        self._update_hashmap()
+        self._data.remove(self._data_stream_mapping[name])
+        self._update_data_stream_mapping()
         return
 
     @classmethod
@@ -709,7 +785,7 @@ class DataStreamCollection(DataStreamCollectionBase[DataStream, _typing.UnsetPar
             raise TypeError("data_stream must be an instance of DataStream.")
         if not data_stream.has_data:
             raise ValueError("DataStream has not been loaded yet. Cannot create DataStreamCollection.")
-        data = data_stream.data if data_stream.is_collection else [data_stream.data]
+        data = data_stream._data if data_stream.is_collection else [data_stream._data]
         return cls(name=data_stream.name, data_streams=data, description=data_stream.description)
 
 

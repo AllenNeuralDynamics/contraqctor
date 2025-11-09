@@ -2,13 +2,12 @@ import pytest
 from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
-from contraqctor.contract.base import DataStream, DataStreamCollection
-
+from contraqctor.contract.base import DataStream, DataStreamCollection, implicit_loading
 
 class TestDataStream:
     """Tests for the DataStream class."""
 
-    def test_creation(self, text_file):
+    def test_creation_without_implicit_loading(self, text_file):
         """Test creating a DataStream."""
         stream = SimpleDataStream(name="test", description="Test stream", reader_params=SimpleParams(path=text_file))
 
@@ -19,7 +18,22 @@ class TestDataStream:
         assert not stream.has_data
 
         with pytest.raises(ValueError):
-            # Accessing data before loading should raise ValueError
+            with implicit_loading(False):
+                # Accessing data before loading should raise ValueError
+                _ = stream.data
+
+    def test_creation_with_implicit_loading(self, text_file):
+        """Test creating a DataStream."""
+        stream = SimpleDataStream(name="test", description="Test stream", reader_params=SimpleParams(path=text_file))
+
+        assert stream.name == "test"
+        assert stream.description == "Test stream"
+        assert not stream.is_collection
+        assert stream.parent is None
+        assert not stream.has_data
+
+        with implicit_loading(True):
+            # Accessing data should trigger implicit loading
             _ = stream.data
 
     def test_load(self, text_file):
@@ -75,7 +89,7 @@ class TestDataStream:
                 name="test::invalid", description="Test stream", reader_params=SimpleParams(path=text_file)
             )
 
-    def test_clear_data(self, text_file):
+    def test_clear_data_without_implicit_loading(self, text_file):
         """Test clearing loaded data."""
         stream = SimpleDataStream(name="test", reader_params=SimpleParams(path=text_file))
 
@@ -86,7 +100,15 @@ class TestDataStream:
         assert not stream.has_data
 
         with pytest.raises(ValueError):
-            _ = stream.data  # Accessing data after clearing should raise ValueError
+            with implicit_loading(False):
+                # Accessing data after clearing should raise ValueError
+                _ = stream.data
+        stream.clear()
+        assert not stream.has_data
+
+        with implicit_loading(True):
+            # Accessing data should trigger implicit loading
+            _ = stream.data
 
     def test_null_data_stream(self):
         """Test DataStream with None data type."""
@@ -224,7 +246,7 @@ class TestDataStreamCollection:
         stream2 = SimpleDataStream(name="stream2", reader_params=SimpleParams(path=text_file))
 
         inner_collection = DataStreamCollection(name="inner", data_streams=[stream2])
-        outer_collection = DataStreamCollection(name="outer", data_streams=[stream1, inner_collection])  # noqa: F841
+        DataStreamCollection(name="outer", data_streams=[stream1, inner_collection])
 
         assert stream1.resolved_name == "outer::stream1"
         assert inner_collection.resolved_name == "outer::inner"
@@ -233,9 +255,136 @@ class TestDataStreamCollection:
         level3 = SimpleDataStream(name="level3", reader_params=SimpleParams(path=text_file))
         level2 = DataStreamCollection(name="level2", data_streams=[level3])
         level1 = DataStreamCollection(name="level1", data_streams=[level2])
-        root = DataStreamCollection(name="root", data_streams=[level1])  # noqa: F841
+        DataStreamCollection(name="root", data_streams=[level1])
 
         assert level3.resolved_name == "root::level1::level2::level3"
+
+    def test_collection_with_implicit_loading(self, text_file):
+        """Test implicit loading behavior in a collection."""
+        level3 = SimpleDataStream(name="level3", reader_params=SimpleParams(path=text_file))
+        level2 = DataStreamCollection(name="level2", data_streams=[level3])
+        level1 = DataStreamCollection(name="level1", data_streams=[level2])
+        root = DataStreamCollection(name="root", data_streams=[level1])
+
+        with implicit_loading(True):
+            # Using all accessor styles just in case
+            assert root.at("level1")["level2"].at("level3").data == "Test content"
+
+    def test_collection_without_implicit_loading(self, text_file):
+        """Test behavior without implicit loading in a collection."""
+        level3 = SimpleDataStream(name="level3", reader_params=SimpleParams(path=text_file))
+        level2 = DataStreamCollection(name="level2", data_streams=[level3])
+        level1 = DataStreamCollection(name="level1", data_streams=[level2])
+        root = DataStreamCollection(name="root", data_streams=[level1])
+
+        with implicit_loading(False):
+            with pytest.raises(ValueError):
+                # Using all accessor styles just in case
+                _ = root.at("level1")["level2"].at.level3.data
+
+    def test_nested_implicit_loading_with_error_stream(self, text_file, temp_dir):
+        """Test implicit loading with a nested stream that has an error."""
+        working_stream = SimpleDataStream(name="working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent.txt"
+        failing_stream = SimpleDataStream(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        inner_collection = DataStreamCollection(name="inner", data_streams=[working_stream, failing_stream])
+        outer_collection = DataStreamCollection(name="outer", data_streams=[inner_collection])
+
+        with implicit_loading(True):
+            assert outer_collection.at("inner").at("working").data == "Test content"
+
+            with pytest.raises(FileNotFoundError):
+                _ = outer_collection.at("inner").at("failing").data
+
+    def test_nested_implicit_loading_disabled_with_error_stream(self, text_file, temp_dir):
+        """Test that implicit loading disabled prevents loading even working streams."""
+        working_stream = SimpleDataStream(name="working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent.txt"
+        failing_stream = SimpleDataStream(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        inner_collection = DataStreamCollection(name="inner", data_streams=[working_stream, failing_stream])
+        outer_collection = DataStreamCollection(name="outer", data_streams=[inner_collection])
+
+        with implicit_loading(False):
+            with pytest.raises(ValueError, match="Data has not been loaded yet"):
+                _ = outer_collection.at("inner").at("working").data
+
+            with pytest.raises(ValueError, match="Data has not been loaded yet"):
+                _ = outer_collection.at("inner").at("failing").data
+
+    def test_mixed_loading_states_with_implicit_loading(self, text_file, temp_dir):
+        """Test implicit loading with mixed pre-loaded and unloaded streams."""
+        preloaded_stream = SimpleDataStream(name="preloaded", reader_params=SimpleParams(path=text_file))
+        unloaded_working_stream = SimpleDataStream(name="unloaded_working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent.txt"
+        unloaded_failing_stream = SimpleDataStream(
+            name="unloaded_failing", reader_params=SimpleParams(path=nonexistent_path)
+        )
+
+        preloaded_stream.load()
+        assert preloaded_stream.has_data
+
+        inner_collection = DataStreamCollection(
+            name="inner", data_streams=[preloaded_stream, unloaded_working_stream, unloaded_failing_stream]
+        )
+        outer_collection = DataStreamCollection(name="outer", data_streams=[inner_collection])
+
+        with implicit_loading(True):
+            assert outer_collection.at("inner").at("preloaded").data == "Test content"
+            assert outer_collection.at("inner").at("unloaded_working").data == "Test content"
+
+            with pytest.raises(FileNotFoundError):
+                _ = outer_collection.at("inner").at("unloaded_failing").data
+
+            assert outer_collection.at("inner").at("unloaded_failing").has_error
+
+    def test_error_propagation_in_deep_nesting(self, text_file, temp_dir):
+        """Test error handling in deeply nested collections."""
+        level3_working = SimpleDataStream(name="level3_working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent.txt"
+        level3_failing = SimpleDataStream(name="level3_failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        level2 = DataStreamCollection(name="level2", data_streams=[level3_working, level3_failing])
+        level1 = DataStreamCollection(name="level1", data_streams=[level2])
+        root = DataStreamCollection(name="root", data_streams=[level1])
+
+        with implicit_loading(True):
+            assert root.at("level1").at("level2").at("level3_working").data == "Test content"
+
+            with pytest.raises(FileNotFoundError):
+                _ = root.at("level1").at("level2").at("level3_failing").data
+
+        errors = root.collect_errors()
+        assert len(errors) == 1
+        assert errors[0].data_stream == level3_failing
+        assert isinstance(errors[0].exception, FileNotFoundError)
+
+    def test_retry_after_error_with_implicit_loading(self, temp_dir):
+        """Test that streams with errors don't auto-retry but can be manually retried."""
+        nonexistent_path = temp_dir / "nonexistent.txt"
+        failing_stream = SimpleDataStream(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        collection = DataStreamCollection(name="collection", data_streams=[failing_stream])
+
+        with implicit_loading(True):
+            with pytest.raises(FileNotFoundError):
+                _ = collection.at("failing").data
+
+            assert collection.at("failing").has_error
+
+            with pytest.raises(FileNotFoundError):
+                _ = collection.at("failing").data
+
+        nonexistent_path.write_text("Fixed content")
+        collection.at("failing").clear()
+
+        with implicit_loading(True):
+            assert collection.at("failing").data == "Fixed content"
 
 
 class TestLoadAllChildren:
