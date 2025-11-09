@@ -92,10 +92,11 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         """
         builder = self.name
         d = self
-        while d._parent is not None:
-            builder = f"{d._parent.name}::{builder}"
-            d = d._parent
+        while d.parent is not None:
+            builder = f"{d.parent.name}::{builder}"
+            d = d.parent
         return builder
+
 
     @property
     def description(self) -> Optional[str]:
@@ -114,6 +115,14 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             Optional[DataStream]: Parent data stream, or None if this is a root stream.
         """
         return self._parent
+
+    def set_parent(self, parent: "DataStream") -> None:
+        """Set the parent data stream.
+
+        Args:
+            parent: The parent data stream to set.
+        """
+        self._parent = parent
 
     @property
     def is_collection(self) -> bool:
@@ -451,7 +460,7 @@ class DataStreamCollectionBase(
         Sets this collection as the parent for all child streams.
         """
         for stream in self._hashmap.values():
-            stream._parent = self
+            stream.set_parent(self)
 
     @property
     def at(self) -> _At[TDataStream]:
