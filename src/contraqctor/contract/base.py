@@ -362,7 +362,7 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             f"name={self._name}, "
             f"description={self._description}, "
             f"reader_params={self._reader_params}, "
-            f"data_type={self._data.__class__.__name__ if self.has_data else 'Not Loaded'}"
+            f"data_type={self.data.__class__.__name__ if self.has_data else 'Data not loaded'}"
         )
 
     def __iter__(self) -> Generator["DataStream", None, None]:
@@ -569,7 +569,7 @@ class DataStreamCollectionBase(
             table.append(
                 [
                     key,
-                    value._data.__class__.__name__ if value.has_data else "Unknown",
+                    value.data.__class__.__name__ if value.has_data else "Unknown",
                     "Yes" if value.has_data else "No",
                 ]
             )
@@ -594,6 +594,8 @@ class DataStreamCollectionBase(
             DataStream: Child data streams.
 
         """
+        # We intentionally yield from self.data to trigger
+        # automatic loading if needed
         yield from self.data
 
     def iter_all(self) -> Generator[DataStream, None, None]:
