@@ -36,6 +36,30 @@ def implicit_loading(value: bool = True):
 
     Args:
         value: True to enable auto-loading, False to disable. Default is True.
+
+    Examples:
+        ```python
+        # Assume you have nested collections already created
+        # collection.at("sensors").at("temperature") -> temperature sensor data
+        # collection.at("sensors").at("humidity") -> humidity sensor data
+        # collection.at("logs").at("error_log") -> error log file
+
+        # With implicit loading enabled (default behavior)
+        with implicit_loading(True):
+            # Data loads automatically on access
+            temp_data = collection.at("sensors").at("temperature").data
+            humidity_data = collection.at("sensors").at("humidity").data
+
+        # With implicit loading disabled - requires explicit loading
+        with implicit_loading(False):
+            # This would raise ValueError: "Data has not been loaded yet"
+            try:
+                temp_data = collection.at("sensors").at("temperature").data
+            except ValueError:
+                # Must load explicitly first
+                collection.load_all()
+                temp_data = collection.at("sensors").at("temperature").data
+        ```
     """
     token = _implicit_loading.set(value)
     try:
@@ -268,6 +292,7 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         return self._solve_data_load()
 
     def _solve_data_load(self) -> _typing.TData:
+        """Resolve data loading based on the current state and implicit loading setting."""
         if self.has_data:
             return cast(_typing.TData, self._data)
 
