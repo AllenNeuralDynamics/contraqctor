@@ -2,13 +2,13 @@ import pytest
 from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
-from contraqctor.contract.base import DataStreamCollection
+from contraqctor.contract.base import DataStreamCollection, implicit_loading
 
 
 class TestDataStream:
     """Tests for the DataStream class."""
 
-    def test_creation(self, text_file):
+    def test_creation_without_implicit_loading(self, text_file):
         """Test creating a DataStream."""
         stream = SimpleDataStream(name="test", description="Test stream", reader_params=SimpleParams(path=text_file))
 
@@ -19,7 +19,22 @@ class TestDataStream:
         assert not stream.has_data
 
         with pytest.raises(ValueError):
-            # Accessing data before loading should raise ValueError
+            with implicit_loading(False):
+                # Accessing data before loading should raise ValueError
+                _ = stream.data
+
+    def test_creation_with_implicit_loading(self, text_file):
+        """Test creating a DataStream."""
+        stream = SimpleDataStream(name="test", description="Test stream", reader_params=SimpleParams(path=text_file))
+
+        assert stream.name == "test"
+        assert stream.description == "Test stream"
+        assert not stream.is_collection
+        assert stream.parent is None
+        assert not stream.has_data
+
+        with implicit_loading(True):
+            # Accessing data should trigger implicit loading
             _ = stream.data
 
     def test_load(self, text_file):
@@ -75,7 +90,7 @@ class TestDataStream:
                 name="test::invalid", description="Test stream", reader_params=SimpleParams(path=text_file)
             )
 
-    def test_clear_data(self, text_file):
+    def test_clear_data_without_implicit_loading(self, text_file):
         """Test clearing loaded data."""
         stream = SimpleDataStream(name="test", reader_params=SimpleParams(path=text_file))
 
@@ -86,7 +101,15 @@ class TestDataStream:
         assert not stream.has_data
 
         with pytest.raises(ValueError):
-            _ = stream.data  # Accessing data after clearing should raise ValueError
+            with implicit_loading(False):
+                # Accessing data after clearing should raise ValueError
+                _ = stream.data
+        stream.clear()
+        assert not stream.has_data
+
+        with implicit_loading(True):
+            # Accessing data should trigger implicit loading
+            _ = stream.data
 
 
 class TestDataStreamCollection:
@@ -224,6 +247,27 @@ class TestDataStreamCollection:
         root = DataStreamCollection(name="root", data_streams=[level1])  # noqa: F841
 
         assert level3.resolved_name == "root::level1::level2::level3"
+
+    def test_collection_with_implicit_loading(self, text_file):
+        """Test implicit loading behavior in a collection."""
+        level3 = SimpleDataStream(name="level3", reader_params=SimpleParams(path=text_file))
+        level2 = DataStreamCollection(name="level2", data_streams=[level3])
+        level1 = DataStreamCollection(name="level1", data_streams=[level2])
+        root = DataStreamCollection(name="root", data_streams=[level1])
+
+        with implicit_loading(True):
+            assert root.at("level1")["level2"].at.level3.data == "Test content"
+
+    def test_collection_without_implicit_loading(self, text_file):
+        """Test behavior without implicit loading in a collection."""
+        level3 = SimpleDataStream(name="level3", reader_params=SimpleParams(path=text_file))
+        level2 = DataStreamCollection(name="level2", data_streams=[level3])
+        level1 = DataStreamCollection(name="level1", data_streams=[level2])
+        root = DataStreamCollection(name="root", data_streams=[level1])
+
+        with implicit_loading(False):
+            with pytest.raises(ValueError):
+                _ = root.at("level1").at("level2").at("level3").data
 
 
 class TestLoadAllChildren:
