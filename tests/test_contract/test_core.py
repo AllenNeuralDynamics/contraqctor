@@ -2,7 +2,7 @@ import pytest
 from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
-from contraqctor.contract.base import DataStreamCollection
+from contraqctor.contract.base import DataStream, DataStreamCollection
 
 
 class TestDataStream:
@@ -87,6 +87,18 @@ class TestDataStream:
 
         with pytest.raises(ValueError):
             _ = stream.data  # Accessing data after clearing should raise ValueError
+
+    def test_null_data_stream(self):
+        """Test DataStream with None data type."""
+
+        class _NullDataStream(DataStream[None, None]):
+            @staticmethod
+            def _reader(params: None = None) -> None:
+                return None
+
+        null_stream = _NullDataStream(name="null_stream", description="Null data stream", reader_params=None)
+        null_stream.load()
+        assert null_stream.data is None
 
 
 class TestDataStreamCollection:
