@@ -19,6 +19,7 @@ readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = [
     'aind_behavior_services',
     'harp-python',
+    'jinja2',
     'matplotlib',
     'numpy',
     'pandas',

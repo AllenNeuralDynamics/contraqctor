@@ -262,6 +262,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aind-behavior-services" },
     { name = "harp-python" },
+    { name = "jinja2" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "opencv-python" },
@@ -294,6 +295,7 @@ docs = [
 requires-dist = [
     { name = "aind-behavior-services" },
     { name = "harp-python" },
+    { name = "jinja2" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "opencv-python" },

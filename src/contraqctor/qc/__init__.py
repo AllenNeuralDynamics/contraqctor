@@ -10,6 +10,7 @@ from .base import (
     elevated_skips,
     elevated_warnings,
 )
+from .reporters import ConsoleReporter, HtmlReporter, Reporter
 
 __all__ = [
     "allow_null_as_pass",
@@ -20,6 +21,9 @@ __all__ = [
     "Runner",
     "Status",
     "ResultsStatistics",
+    "Reporter",
+    "ConsoleReporter",
+    "HtmlReporter",
     "ContextExportableObj",
     "ASSET_RESERVED_KEYWORD",
     "harp",

@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Results Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+            font-size: 1.5em;
+        }
+
+        .summary {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px 20px;
+            background-color: white;
+            border-radius: 4px;
+            min-width: 100px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .stat-passed { color: #27ae60; }
+        .stat-failed { color: #e74c3c; }
+        .stat-error { color: #9b59b6; }
+        .stat-skipped { color: #f39c12; }
+        .stat-warning { color: #e67e22; }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            margin: 20px 0;
+        }
+
+        .progress-segment {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-passed { background-color: #27ae60; }
+        .progress-failed { background-color: #e74c3c; }
+        .progress-error { background-color: #9b59b6; }
+        .progress-skipped { background-color: #f39c12; }
+        .progress-warning { background-color: #e67e22; }
+
+        .overview {
+            margin-bottom: 40px;
+        }
+
+        .overview h2 {
+            margin-top: 0;
+        }
+
+        .results h2 {
+            margin-top: 0;
+        }
+
+        .overview-tree {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .tree-group {
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tree-group:last-child {
+            border-bottom: none;
+        }
+
+        .tree-group-header {
+            background-color: #f8f9fa;
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background-color 0.2s;
+        }
+
+        .tree-group-header:hover {
+            background-color: #e9ecef;
+        }
+
+        .tree-toggle {
+            font-size: 0.8em;
+            transition: transform 0.2s;
+        }
+
+        .tree-group.collapsed .tree-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .tree-group-title {
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .tree-group-stats {
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tree-group-progress {
+            height: 8px;
+            min-width: 120px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .tree-progress-segment {
+            height: 100%;
+        }
+
+        .tree-progress-passed { background-color: #27ae60; }
+        .tree-progress-failed { background-color: #e74c3c; }
+        .tree-progress-error { background-color: #9b59b6; }
+        .tree-progress-skipped { background-color: #f39c12; }
+        .tree-progress-warning { background-color: #e67e22; }
+
+        .tree-suite-list {
+            background-color: white;
+        }
+
+        .tree-group.collapsed .tree-suite-list {
+            display: none;
+        }
+
+        .tree-suite {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tree-suite:last-child {
+            border-bottom: none;
+        }
+
+        .tree-suite-header {
+            padding: 10px 15px 10px 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #fdfdfd;
+            transition: background-color 0.2s;
+        }
+
+        .tree-suite-header:hover {
+            background-color: #f5f5f5;
+        }
+
+        .tree-suite-title {
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .tree-suite-stats {
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tree-test-list {
+            background-color: #fafafa;
+        }
+
+        .tree-suite.collapsed .tree-test-list {
+            display: none;
+        }
+
+        .tree-test-item {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tree-test-item:last-child {
+            border-bottom: none;
+        }
+
+        .tree-test-header {
+            padding: 8px 15px 8px 65px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .tree-test-header:hover {
+            background-color: #f0f0f0;
+        }
+
+        .tree-test-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .tree-test-name {
+            color: #333;
+        }
+
+        .tree-test-details {
+            padding: 15px 20px 15px 65px;
+            background-color: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .tree-test-item.collapsed .tree-test-details {
+            display: none;
+        }
+
+        .tree-status-icon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tree-status-icon.passed { background-color: #27ae60; }
+        .tree-status-icon.failed { background-color: #e74c3c; }
+        .tree-status-icon.error { background-color: #9b59b6; }
+        .tree-status-icon.skipped { background-color: #f39c12; }
+        .tree-status-icon.warning { background-color: #e67e22; }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-PASSED { background-color: #27ae60; color: white; }
+        .status-FAILED { background-color: #e74c3c; color: white; }
+        .status-ERROR { background-color: #9b59b6; color: white; }
+        .status-SKIPPED { background-color: #f39c12; color: white; }
+        .status-WARNING { background-color: #e67e22; color: white; }
+
+        .test-section {
+            margin-bottom: 15px;
+        }
+
+        .test-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .test-section-title {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .test-section-content {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        .context-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .context-item {
+            margin-bottom: 15px;
+        }
+
+        .context-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .context-key {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .traceback {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9em;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .summary-stats {
+                flex-direction: column;
+            }
+            
+            .stat-item {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Results Report</h1>
+        <p style="color: #7f8c8d; margin-bottom: 20px;">
+            <strong>contraqctor</strong> v{{ version }} • Test run: {{ timestamp }}
+        </p>
+        
+        <div class="summary">
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-value">{{ statistics.total }}</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value stat-passed">{{ statistics.passed }}</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value stat-failed">{{ statistics.failed }}</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value stat-error">{{ statistics.error }}</div>
+                    <div class="stat-label">Error</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value stat-warning">{{ statistics.warnings }}</div>
+                    <div class="stat-label">Warning</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value stat-skipped">{{ statistics.skipped }}</div>
+                    <div class="stat-label">Skipped</div>
+                </div>
+            </div>
+            
+            {% if statistics.total > 0 %}
+            <div class="progress-bar">
+                {% if statistics.passed > 0 %}
+                <div class="progress-segment progress-passed" 
+                     style="width: {{ (statistics.passed / statistics.total * 100)|round(2) }}%"></div>
+                {% endif %}
+                {% if statistics.failed > 0 %}
+                <div class="progress-segment progress-failed" 
+                     style="width: {{ (statistics.failed / statistics.total * 100)|round(2) }}%"></div>
+                {% endif %}
+                {% if statistics.error > 0 %}
+                <div class="progress-segment progress-error" 
+                     style="width: {{ (statistics.error / statistics.total * 100)|round(2) }}%"></div>
+                {% endif %}
+                {% if statistics.warnings > 0 %}
+                <div class="progress-segment progress-warning" 
+                     style="width: {{ (statistics.warnings / statistics.total * 100)|round(2) }}%"></div>
+                {% endif %}
+                {% if statistics.skipped > 0 %}
+                <div class="progress-segment progress-skipped" 
+                     style="width: {{ (statistics.skipped / statistics.total * 100)|round(2) }}%"></div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="overview">
+            <h2>Test Results</h2>
+            <div class="overview-tree">
+                {% for group in groups %}
+                <div class="tree-group collapsed">
+                    <div class="tree-group-header" onclick="toggleGroup(this)">
+                        <span class="tree-toggle">▼</span>
+                        <span class="tree-group-title">{{ group.name }}</span>
+                        <span class="tree-group-stats">
+                            <span>P:{{ group.statistics.passed }} F:{{ group.statistics.failed }} E:{{ group.statistics.error }} S:{{ group.statistics.skipped }} W:{{ group.statistics.warnings }}</span>
+                            {% if group.statistics.total > 0 %}
+                            <div class="tree-group-progress">
+                                {% if group.statistics.passed > 0 %}
+                                <div class="tree-progress-segment tree-progress-passed" 
+                                     style="width: {{ (group.statistics.passed / group.statistics.total * 100)|round(2) }}%"></div>
+                                {% endif %}
+                                {% if group.statistics.failed > 0 %}
+                                <div class="tree-progress-segment tree-progress-failed" 
+                                     style="width: {{ (group.statistics.failed / group.statistics.total * 100)|round(2) }}%"></div>
+                                {% endif %}
+                                {% if group.statistics.error > 0 %}
+                                <div class="tree-progress-segment tree-progress-error" 
+                                     style="width: {{ (group.statistics.error / group.statistics.total * 100)|round(2) }}%"></div>
+                                {% endif %}
+                                {% if group.statistics.warnings > 0 %}
+                                <div class="tree-progress-segment tree-progress-warning" 
+                                     style="width: {{ (group.statistics.warnings / group.statistics.total * 100)|round(2) }}%"></div>
+                                {% endif %}
+                                {% if group.statistics.skipped > 0 %}
+                                <div class="tree-progress-segment tree-progress-skipped" 
+                                     style="width: {{ (group.statistics.skipped / group.statistics.total * 100)|round(2) }}%"></div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="tree-suite-list">
+                        {% for suite_name, suite_tests in group.suites.items() %}
+                        <div class="tree-suite collapsed">
+                            <div class="tree-suite-header" onclick="toggleSuite(this, event)">
+                                <span class="tree-toggle">▼</span>
+                                <span class="tree-suite-title">{{ suite_name }}</span>
+                                <span class="tree-suite-stats">
+                                    {% set suite_stats_passed = suite_tests|selectattr('result.status.name', 'equalto', 'PASSED')|list|length %}
+                                    {% set suite_stats_failed = suite_tests|selectattr('result.status.name', 'equalto', 'FAILED')|list|length %}
+                                    {% set suite_stats_error = suite_tests|selectattr('result.status.name', 'equalto', 'ERROR')|list|length %}
+                                    {% set suite_stats_skipped = suite_tests|selectattr('result.status.name', 'equalto', 'SKIPPED')|list|length %}
+                                    {% set suite_stats_warning = suite_tests|selectattr('result.status.name', 'equalto', 'WARNING')|list|length %}
+                                    {% set suite_stats_total = suite_tests|length %}
+                                    <span>P:{{ suite_stats_passed }} F:{{ suite_stats_failed }} E:{{ suite_stats_error }} S:{{ suite_stats_skipped }} W:{{ suite_stats_warning }}</span>
+                                    {% if suite_stats_total > 0 %}
+                                    <div class="tree-group-progress">
+                                        {% if suite_stats_passed > 0 %}
+                                        <div class="tree-progress-segment tree-progress-passed" 
+                                             style="width: {{ (suite_stats_passed / suite_stats_total * 100)|round(2) }}%"></div>
+                                        {% endif %}
+                                        {% if suite_stats_failed > 0 %}
+                                        <div class="tree-progress-segment tree-progress-failed" 
+                                             style="width: {{ (suite_stats_failed / suite_stats_total * 100)|round(2) }}%"></div>
+                                        {% endif %}
+                                        {% if suite_stats_error > 0 %}
+                                        <div class="tree-progress-segment tree-progress-error" 
+                                             style="width: {{ (suite_stats_error / suite_stats_total * 100)|round(2) }}%"></div>
+                                        {% endif %}
+                                        {% if suite_stats_warning > 0 %}
+                                        <div class="tree-progress-segment tree-progress-warning" 
+                                             style="width: {{ (suite_stats_warning / suite_stats_total * 100)|round(2) }}%"></div>
+                                        {% endif %}
+                                        {% if suite_stats_skipped > 0 %}
+                                        <div class="tree-progress-segment tree-progress-skipped" 
+                                             style="width: {{ (suite_stats_skipped / suite_stats_total * 100)|round(2) }}%"></div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="tree-test-list">
+                                {% for test in suite_tests %}
+                                <div class="tree-test-item collapsed">
+                                    <div class="tree-test-header" onclick="toggleTest(this, event)">
+                                        <div class="tree-test-title">
+                                            <span class="tree-status-icon {{ test.result.status.name|lower }}"></span>
+                                            <span class="tree-test-name">{{ test.result.test_name }}</span>
+                                        </div>
+                                        <div class="status-badge status-{{ test.result.status.name }}">
+                                            {{ test.result.status.name }}
+                                        </div>
+                                    </div>
+                                    <div class="tree-test-details">
+                                        {% if render_description and test.result.description %}
+                                        <div class="test-section">
+                                            <div class="test-section-title">Description</div>
+                                            <div class="test-section-content">{{ test.result.description }}</div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="test-section">
+                                            <div class="test-section-title">Result</div>
+                                            <div class="test-section-content">{{ test.result.result }}</div>
+                                        </div>
+                                        
+                                        {% if render_message and test.result.message %}
+                                        <div class="test-section">
+                                            <div class="test-section-title">Message</div>
+                                            <div class="test-section-content">{{ test.result.message }}</div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if render_context and test.result.context %}
+                                        <div class="test-section">
+                                            <div class="test-section-title">Context</div>
+                                            {% if serialize_context_exportable_obj and test.serialized_context %}
+                                                {% if test.serialized_context is mapping %}
+                                                    {% for key, value in test.serialized_context.items() %}
+                                                    <div class="context-item">
+                                                        <div class="context-key">{{ key }}:</div>
+                                                        {% if value is mapping and value.type == 'image' %}
+                                                        <img src="{{ value.data }}" alt="{{ key }}" class="context-image">
+                                                        {% else %}
+                                                        <div class="test-section-content">{{ value }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <div class="test-section-content">{{ test.serialized_context }}</div>
+                                                {% endif %}
+                                            {% else %}
+                                                <div class="test-section-content">{{ test.result.context }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if render_traceback and test.result.traceback %}
+                                        <div class="test-section">
+                                            <div class="test-section-title">Traceback</div>
+                                            <div class="traceback">{{ test.result.traceback }}</div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleGroup(element) {
+            element.parentElement.classList.toggle('collapsed');
+        }
+
+        function toggleSuite(element, event) {
+            event.stopPropagation();
+            element.parentElement.classList.toggle('collapsed');
+        }
+
+        function toggleTest(element, event) {
+            event.stopPropagation();
+            element.parentElement.classList.toggle('collapsed');
+        }
+
+        // Auto-expand failed/error tests on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const failedTests = document.querySelectorAll('.tree-test-item');
+            failedTests.forEach(testItem => {
+                const badge = testItem.querySelector('.status-FAILED, .status-ERROR');
+                if (badge) {
+                    testItem.classList.remove('collapsed');
+                    // Also expand parent suite and group
+                    let suite = testItem.closest('.tree-suite');
+                    if (suite) suite.classList.remove('collapsed');
+                    let group = testItem.closest('.tree-group');
+                    if (group) group.classList.remove('collapsed');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

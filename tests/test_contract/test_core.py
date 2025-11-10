@@ -4,6 +4,7 @@ from conftest import SimpleDataStream, SimpleParams
 from contraqctor import _typing
 from contraqctor.contract.base import DataStream, DataStreamCollection, implicit_loading
 
+
 class TestDataStream:
     """Tests for the DataStream class."""
 
