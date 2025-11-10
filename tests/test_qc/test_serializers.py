@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from contraqctor.qc._context_extensions import ContextExportableObj
-from contraqctor.qc.base import ResultsStatistics, Suite, _TaggedResult
+from contraqctor.qc.base import Suite, _TaggedResult
 from contraqctor.qc.reporters import ConsoleReporter, HtmlReporter
 from contraqctor.qc.serializers import (
     ContextExportableObjSerializer,
@@ -293,13 +293,9 @@ class TestConsoleReporterSerialization:
             result = next(iter(results_iter))
             tagged_results.append(_TaggedResult(suite=suite, group="Test", result=result, test=test_method))
 
-        stats = ResultsStatistics.from_results([tr.result for tr in tagged_results])
-
         with tempfile.TemporaryDirectory() as tmpdir:
             reporter = ConsoleReporter()
-            reporter.report_results(
-                tagged_results, stats, serialize_context_exportable_obj=True, asset_output_dir=tmpdir
-            )
+            reporter.report_results(tagged_results, serialize_context_exportable_obj=True, asset_output_dir=tmpdir)
 
             files = list(Path(tmpdir).glob("*.png"))
             assert len(files) == 2
@@ -324,8 +320,6 @@ class TestConsoleReporterSerialization:
             result = next(iter(results_iter))
             tagged_results.append(_TaggedResult(suite=suite, group="Test", result=result, test=test_method))
 
-        stats = ResultsStatistics.from_results([tr.result for tr in tagged_results])
-
         default_dir = Path("./report/assets")
         if default_dir.exists():
             import shutil
@@ -333,7 +327,7 @@ class TestConsoleReporterSerialization:
             shutil.rmtree(default_dir)
 
         reporter = ConsoleReporter()
-        reporter.report_results(tagged_results, stats, serialize_context_exportable_obj=True)
+        reporter.report_results(tagged_results, serialize_context_exportable_obj=True)
 
         assert default_dir.exists()
         files = list(default_dir.glob("*.png"))
@@ -367,12 +361,10 @@ class TestHtmlReporterSerialization:
             result = next(iter(results_iter))
             tagged_results.append(_TaggedResult(suite=suite, group="Test", result=result, test=test_method))
 
-        stats = ResultsStatistics.from_results([tr.result for tr in tagged_results])
-
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "test_report.html"
             reporter = HtmlReporter(output_path)
-            reporter.report_results(tagged_results, stats, serialize_context_exportable_obj=True)
+            reporter.report_results(tagged_results, serialize_context_exportable_obj=True)
 
             assert output_path.exists()
             content = output_path.read_text()
@@ -398,12 +390,10 @@ class TestHtmlReporterSerialization:
             result = next(iter(results_iter))
             tagged_results.append(_TaggedResult(suite=suite, group="Test", result=result, test=test_method))
 
-        stats = ResultsStatistics.from_results([tr.result for tr in tagged_results])
-
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "test_report.html"
             reporter = HtmlReporter(output_path)
-            reporter.report_results(tagged_results, stats, serialize_context_exportable_obj=False)
+            reporter.report_results(tagged_results, serialize_context_exportable_obj=False)
 
             assert output_path.exists()
             content = output_path.read_text()

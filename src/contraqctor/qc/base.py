@@ -1260,10 +1260,7 @@ class Runner:
         self,
         *,
         reporter: t.Optional["Reporter"] = None,
-        render_context: bool = True,
-        render_description: bool = True,
-        render_traceback: bool = True,
-        render_message: bool = True,
+        **reporter_kwargs: t.Any,
     ) -> t.Dict[t.Optional[str], t.List[Result]]:
         """Run all tests in all suites with a rich progress display.
 
@@ -1272,10 +1269,6 @@ class Runner:
 
         Args:
             reporter: Optional reporter to use for output. If None, uses ConsoleReporter.
-            render_context: Whether to render test context in result output.
-            render_description: Whether to render test descriptions in result output.
-            render_traceback: Whether to render tracebacks for errors in result output.
-            render_message: Whether to render test result messages in result output.
 
         Returns:
             Dict[Optional[str], List[Result]]: Results grouped by test group name.
@@ -1386,14 +1379,9 @@ class Runner:
 
         self._results = collected_results
         if self._results:
-            total_stats = ResultsStatistics.from_results([tr.result for tr in self._results])
             reporter.report_results(
                 self._results,
-                total_stats,
-                render_description=render_description,
-                render_traceback=render_traceback,
-                render_message=render_message,
-                render_context=render_context,
+                **reporter_kwargs,
             )
 
         out: t.Dict[t.Optional[str], t.List[Result]] = {}
