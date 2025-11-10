@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from contraqctor.qc.base import Result, ResultsStatistics, Runner, Status, Suite
+from contraqctor.qc.reporters import ConsoleReporter
 
 
 class MockSuite(Suite):
@@ -97,6 +98,7 @@ class TestRunner:
     @patch("rich.progress.Progress")
     def test_run_all_with_progress(self, mock_progress):
         """Test running all tests with progress reporting."""
+
         runner = Runner()
         suite1 = MockSuite()
         suite2 = MockSuite()
@@ -104,7 +106,7 @@ class TestRunner:
         runner.add_suite(suite1)  # Default group (None)
         runner.add_suite(suite2, group="TestGroup")
 
-        with patch.object(runner, "_print_results"):
+        with patch.object(ConsoleReporter, "report_results"):
             grouped_results = runner.run_all_with_progress()
 
             assert None in grouped_results

@@ -10,6 +10,7 @@ from contraqctor.qc.base import (
     allow_null_as_pass,
 )
 
+from contraqctor.qc.reporters import ConsoleReporter
 
 class MockHarpDevice:
     def __init__(self, name, data=None):
@@ -65,12 +66,13 @@ class TestIntegration:
 
     def test_full_test_flow(self, mock_device):
         """Test a complete flow from creating suites to running tests."""
+
         suite = ExampleBoardTestSuite(mock_device)
 
         runner = Runner()
         runner.add_suite(suite, group="TestDevices")
 
-        with patch.object(runner, "_print_results"):
+        with patch.object(ConsoleReporter, "report_results"):
             grouped_results = runner.run_all_with_progress()
 
             assert "TestDevices" in grouped_results
@@ -82,11 +84,12 @@ class TestIntegration:
 
     def test_with_invalid_device(self, invalid_device):
         """Test with an invalid device that should cause failures."""
+
         suite = ExampleBoardTestSuite(invalid_device)
         runner = Runner()
         runner.add_suite(suite)
 
-        with patch.object(runner, "_print_results"):
+        with patch.object(ConsoleReporter, "report_results"):
             grouped_results = runner.run_all_with_progress()
 
             results = grouped_results[None]
@@ -100,13 +103,14 @@ class TestIntegration:
 
     def test_with_context_managers(self, mock_device):
         """Test using context managers to modify test behavior."""
+
         suite = ExampleBoardTestSuite(mock_device)
         runner = Runner()
         runner.add_suite(suite)
 
         # Allow None to be treated as pass
         with allow_null_as_pass():
-            with patch.object(runner, "_print_results"):
+            with patch.object(ConsoleReporter, "report_results"):
                 grouped_results = runner.run_all_with_progress()
                 results = grouped_results[None]
 
@@ -117,6 +121,7 @@ class TestIntegration:
 
     def test_multiple_groups(self, mock_device, invalid_device):
         """Test running suites in multiple groups."""
+
         valid_suite = ExampleBoardTestSuite(mock_device)
         invalid_suite = ExampleBoardTestSuite(invalid_device)
 
@@ -124,7 +129,7 @@ class TestIntegration:
         runner.add_suite(valid_suite, "ValidDevices")
         runner.add_suite(invalid_suite, "InvalidDevices")
 
-        with patch.object(runner, "_print_results"):
+        with patch.object(ConsoleReporter, "report_results"):
             grouped_results = runner.run_all_with_progress()
 
             assert "ValidDevices" in grouped_results
