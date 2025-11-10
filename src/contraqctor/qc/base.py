@@ -12,7 +12,9 @@ from enum import Enum, auto
 import rich.markup
 import rich.progress
 from rich.console import Console
-from rich.syntax import Syntax
+
+if t.TYPE_CHECKING:
+    from contraqctor.qc.reporters import Reporter
 
 _elevate_skippable = contextvars.ContextVar("elevate_skippable", default=False)
 _elevate_warning = contextvars.ContextVar("elevate_warning", default=False)
@@ -1037,10 +1039,15 @@ class Runner:
 
     _DEFAULT_TEST_GROUP = "Ungrouped"
 
-    def __init__(self):
-        """Initialize the test runner."""
+    def __init__(self, console: t.Optional[Console] = None):
+        """Initialize the test runner.
+        
+        Args:
+            console: Optional rich Console instance for progress display.
+        """
         self.suites: t.Dict[t.Optional[str], t.List[Suite]] = {}
         self._results: t.Optional[t.List[_TaggedResult]] = None
+        self._console = console or Console()
 
     @t.overload
     def add_suite(self, suite: Suite) -> t.Self:
@@ -1245,11 +1252,11 @@ class Runner:
     def run_all_with_progress(
         self,
         *,
+        reporter: t.Optional["Reporter"] = None,
         render_context: bool = True,
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
-        console: t.Optional[rich.console.Console] = None,
     ) -> t.Dict[t.Optional[str], t.List[Result]]:
         """Run all tests in all suites with a rich progress display.
 
@@ -1257,6 +1264,7 @@ class Runner:
         of test outcomes.
 
         Args:
+            reporter: Optional reporter to use for output. If None, uses ConsoleReporter.
             render_context: Whether to render test context in result output.
             render_description: Whether to render test descriptions in result output.
             render_traceback: Whether to render tracebacks for errors in result output.
@@ -1267,12 +1275,19 @@ class Runner:
 
         Examples:
             ```python
+            from contraqctor.qc.base import Runner
+            from contraqctor.qc.reporters import ConsoleReporter, HtmlReporter
+            
             runner = Runner()
             runner.add_suite(DataValidationSuite(), "Validation")
             runner.add_suite(PerformanceSuite(), "Performance")
 
-            # Run all tests with progress display and complete output
+            # Run with default console reporter
             results = runner.run_all_with_progress()
+
+            # Run with HTML reporter
+            html_reporter = HtmlReporter("test_report.html")
+            results = runner.run_all_with_progress(reporter=html_reporter)
 
             # Run with simplified output (no context or traceback)
             results = runner.run_all_with_progress(
@@ -1288,18 +1303,20 @@ class Runner:
             )
             ```
         """
+        from contraqctor.qc.reporters import ConsoleReporter
 
-        console = console or rich.console.Console()
+        if reporter is None:
+            reporter = ConsoleReporter(console=self._console)
+
         collected_tests = self._collect_tests()
         total_test_count = len(collected_tests)
 
         suite_name_lengths = [len(suite.name) for suite, _ in _TaggedTest.group_by_suite(collected_tests)]
-        # we sum 2 to account for brackets
         group_lengths = [
             len(group) + 2 for group, _ in _TaggedTest.group_by_group(collected_tests) if group is not None
         ]
         full_name_width = max(suite_name_lengths + group_lengths) if suite_name_lengths else 10
-        test_name_width = 20  # To render the test name during progress
+        test_name_width = 20
         bar_width = 20
 
         progress_format = [
@@ -1310,7 +1327,7 @@ class Runner:
             rich.progress.TimeElapsedColumn(),
         ]
 
-        with rich.progress.Progress(*progress_format, console=console) as progress:
+        with rich.progress.Progress(*progress_format, console=self._console) as progress:
             total_task = progress.add_task(
                 "[bold green]TOTAL PROGRESS".ljust(full_name_width + test_name_width + 5), total=total_test_count
             )
@@ -1356,16 +1373,16 @@ class Runner:
                 total_status_bar = self._render_status_bar(total_stats, bar_width)
 
                 _title = "TOTAL PROGRESS"
-                # Fix: Use max() to ensure padding width is never negative
                 padding_width = max(0, full_name_width - len(_title))
                 total_line = f"[bold green]{_title}{' ' * padding_width} | {total_status_bar} | {total_stats.get_status_summary()}"
                 progress.update(total_task, description=total_line)
 
         self._results = collected_results
         if self._results:
-            self._print_results(
-                console,
+            total_stats = ResultsStatistics.from_results([tr.result for tr in self._results])
+            reporter.report_results(
                 self._results,
+                total_stats,
                 render_description=render_description,
                 render_traceback=render_traceback,
                 render_message=render_message,
@@ -1388,124 +1405,3 @@ class Runner:
             str: Unescaped string.
         """
         return value.replace(r"\[", "[").replace(r"\]", "]")
-
-    def _print_results(
-        self,
-        console: Console,
-        results: t.List[_TaggedResult],
-        include: t.Set[Status] = set((Status.FAILED, Status.ERROR, Status.WARNING)),
-        *,
-        render_context: bool = True,
-        render_description: bool = True,
-        render_traceback: bool = True,
-        render_message: bool = True,
-    ):
-        """Print detailed test results to the console.
-
-        Prints a summary of test results with status header, focusing on tests with
-        statuses specified in the include set. Results are grouped by their original
-        test group names.
-
-        Args:
-            results: List of tagged test results to print.
-            include: Set of status types to include in the output.
-            render_context: Whether to render test context.
-            render_description: Whether to render test descriptions.
-            render_traceback: Whether to render tracebacks for errors.
-            render_message: Whether to render test result messages.
-        """
-
-        if not results:
-            return
-
-        all_included_results = [tagged_result for tagged_result in results if tagged_result.result.status in include]
-
-        # If no tests match the included statuses, return early
-        if not all_included_results:
-            return
-
-        console.print()
-        self._print_status_header(console, include)
-        console.print()
-        idx = 0
-        for group, test_results in _TaggedResult.group_by_group(all_included_results):
-            group_name = group or self._DEFAULT_TEST_GROUP
-            for result in test_results:
-                self._print_test_result(
-                    console,
-                    result.result,
-                    group_name,
-                    idx,
-                    render_message,
-                    render_description,
-                    render_traceback,
-                    render_context,
-                )
-                console.print()
-                idx += 1
-
-    def _print_status_header(self, console: Console, include: set[Status]) -> None:
-        """Print header showing which statuses are included.
-
-        Args:
-            console: Console to print to.
-            include: Set of statuses to include.
-        """
-        if include:
-            console.print("Including ", end="")
-            for i, status in enumerate(include):
-                color = STATUS_COLOR[status]
-                console.print(f"[{color}]{status}[/{color}]", end="")
-                if i < len(include) - 1:
-                    console.print(", ", end="")
-            console.print()
-
-    def _print_test_result(
-        self,
-        console: Console,
-        test_result: Result,
-        group_name: str,
-        idx: int,
-        render_message: bool = True,
-        render_description: bool = True,
-        render_traceback: bool = True,
-        render_context: bool = True,
-    ) -> None:
-        """Print details of a single test result.
-
-        Args:
-            console: Console to print to.
-            test_result: The test result to print.
-            group_name: Name of the group containing the test.
-            idx: Index number for the test result.
-            render_message: Whether to render the message.
-            render_description: Whether to render the description.
-            render_traceback: Whether to render the traceback.
-            render_context: Whether to render the context.
-        """
-        color = STATUS_COLOR[test_result.status]
-
-        # Print header
-        group_name = rich.markup.escape(f"[{group_name}]")
-        console.print(
-            f"[bold {color}]{idx}. {group_name} {test_result.suite_name}.{test_result.test_name}[/bold {color}]"
-        )
-
-        console.print(f"[{color}]Result:[/{color}] {test_result.result}")
-
-        if render_message and test_result.message:
-            console.print(f"[{color}]Message:[/{color}] {test_result.message}")
-
-        if render_description and test_result.description:
-            console.print(f"[{color}]Description:[/{color}] {test_result.description}")
-
-        if render_traceback and test_result.traceback:
-            console.print(f"[{color}]Traceback:[/{color}]")
-            syntax = Syntax(test_result.traceback, "pytb", theme="ansi", line_numbers=False)
-            console.print(syntax)
-
-        if render_context and test_result.context:
-            console.print(f"[{color}]Context:[/{color}] {test_result.context}")
-
-        # Print separator
-        console.print("=" * 80)
