@@ -1,5 +1,7 @@
 import abc
 import typing as t
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import jinja2
@@ -10,6 +12,11 @@ from rich.syntax import Syntax
 
 from contraqctor.qc.base import Result, ResultsStatistics, Status, _TaggedResult
 from contraqctor.qc.serializers import ContextExportableObjSerializer
+
+try:
+    __version__ = version("contraqctor")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
 
 STATUS_COLOR = {
     Status.PASSED: "green",
@@ -128,6 +135,9 @@ class ConsoleReporter(Reporter):
         if not all_included_results:
             return
 
+        self.console.print()
+        self.console.print(f"[bold]contraqctor v{__version__}[/bold]")
+        self.console.print(f"[dim]Test run: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}[/dim]")
         self.console.print()
         self._print_status_header(self.include_status)
         self.console.print()
@@ -324,6 +334,8 @@ class HtmlReporter(Reporter):
             render_traceback=render_traceback,
             render_message=render_message,
             serialize_context_exportable_obj=serialize_context_exportable_obj,
+            version=__version__,
+            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         )
 
         self.output_path.write_text(html_content, encoding="utf-8")
