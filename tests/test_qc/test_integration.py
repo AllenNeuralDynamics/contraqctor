@@ -9,8 +9,8 @@ from contraqctor.qc.base import (
     Suite,
     allow_null_as_pass,
 )
-
 from contraqctor.qc.reporters import ConsoleReporter
+
 
 class MockHarpDevice:
     def __init__(self, name, data=None):

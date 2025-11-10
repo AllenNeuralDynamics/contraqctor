@@ -1041,7 +1041,7 @@ class Runner:
 
     def __init__(self, console: t.Optional[Console] = None):
         """Initialize the test runner.
-        
+
         Args:
             console: Optional rich Console instance for progress display.
         """
@@ -1277,7 +1277,7 @@ class Runner:
             ```python
             from contraqctor.qc.base import Runner
             from contraqctor.qc.reporters import ConsoleReporter, HtmlReporter
-            
+
             runner = Runner()
             runner.add_suite(DataValidationSuite(), "Validation")
             runner.add_suite(PerformanceSuite(), "Performance")

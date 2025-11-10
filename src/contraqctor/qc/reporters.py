@@ -21,7 +21,7 @@ STATUS_COLOR = {
 
 class Reporter(abc.ABC):
     """Base class for test result reporters.
-    
+
     Reporters handle the presentation of test results in different formats
     such as console output or HTML files.
     """
@@ -38,7 +38,7 @@ class Reporter(abc.ABC):
         render_message: bool = True,
     ) -> None:
         """Report test results.
-        
+
         Args:
             results: List of tagged test results.
             statistics: Overall statistics for the test run.
@@ -52,7 +52,7 @@ class Reporter(abc.ABC):
 
 class ConsoleReporter(Reporter):
     """Reporter that outputs test results to a rich console.
-    
+
     Args:
         console: Optional rich Console instance. If not provided, creates a new one.
         include_status: Set of statuses to include in detailed output.
@@ -160,7 +160,7 @@ class ConsoleReporter(Reporter):
 
 class HtmlReporter(Reporter):
     """Reporter that generates HTML output for test results.
-    
+
     Args:
         output_path: Path where the HTML report should be written.
         template_dir: Optional directory containing custom Jinja2 templates.
@@ -202,18 +202,20 @@ class HtmlReporter(Reporter):
         for group, test_results in _TaggedResult.group_by_group(results):
             group_name = group or self.default_group_name
             group_stats = ResultsStatistics.from_results([tr.result for tr in test_results])
-            
+
             # Group by suite within the group
             suites: dict[str, list[dict]] = {}
             for tr in test_results:
                 suite_name = tr.suite.name
                 if suite_name not in suites:
                     suites[suite_name] = []
-                suites[suite_name].append({
-                    "result": tr.result,
-                    "suite_name": suite_name,
-                })
-            
+                suites[suite_name].append(
+                    {
+                        "result": tr.result,
+                        "suite_name": suite_name,
+                    }
+                )
+
             grouped_results.append(
                 {
                     "name": group_name,
