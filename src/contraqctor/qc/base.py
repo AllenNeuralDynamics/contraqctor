@@ -1145,14 +1145,21 @@ class Runner:
             return ""
 
         status_bar = ""
-        _t_int = 0
-        for status in Status:
-            if stats[status]:
-                color = STATUS_COLOR[status]
-                _bar_width = int(bar_width * (stats[status] / total))
-                _t_int += _bar_width
-                status_bar += f"[{color}]{'█' * _bar_width}[/{color}]"
-        status_bar += f"[default]{'█' * (bar_width - _t_int)}[/default]"
+        allocated_width = 0
+        statuses_with_counts = [(status, stats[status]) for status in Status if stats[status]]
+        
+        for idx, (status, count) in enumerate(statuses_with_counts):
+            color = STATUS_COLOR[status]
+            
+            if idx == len(statuses_with_counts) - 1:
+                # Last segment gets remaining width to avoid rounding errors
+                segment_width = bar_width - allocated_width
+            else:
+                # Round to nearest integer for better distribution
+                segment_width = round(bar_width * (count / total))
+            
+            allocated_width += segment_width
+            status_bar += f"[{color}]{'█' * segment_width}[/{color}]"
 
         return status_bar
 
