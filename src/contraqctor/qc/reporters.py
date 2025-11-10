@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.syntax import Syntax
 
 from contraqctor.qc.base import Result, ResultsStatistics, Status, _TaggedResult
+from contraqctor.qc.serializers import ContextExportableObjSerializer
 
 STATUS_COLOR = {
     Status.PASSED: "green",
@@ -36,6 +37,8 @@ class Reporter(abc.ABC):
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
+        serialize_context_exportable_obj: bool = False,
+        **kwargs,
     ) -> None:
         """Report test results.
 
@@ -46,6 +49,7 @@ class Reporter(abc.ABC):
             render_description: Whether to include test descriptions.
             render_traceback: Whether to include tracebacks for errors.
             render_message: Whether to include test result messages.
+            serialize_context_exportable_obj: Whether to serialize ContextExportableObj instances.
         """
         pass
 
@@ -78,10 +82,44 @@ class ConsoleReporter(Reporter):
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
+        serialize_context_exportable_obj: bool = False,
+        asset_output_dir: str | Path = Path("./report/assets"),
+        **kwargs,
     ) -> None:
-        """Print detailed test results to the console."""
+        """Print detailed test results to the console.
+
+        Args:
+            results: List of tagged test results.
+            statistics: Overall statistics for the test run.
+            render_context: Whether to include test context.
+            render_description: Whether to include test descriptions.
+            render_traceback: Whether to include tracebacks for errors.
+            render_message: Whether to include test result messages.
+            serialize_context_exportable_obj: Whether to serialize ContextExportableObj instances.
+            asset_output_dir: Directory for saving serialized assets. Defaults to "./report/assets".
+        """
         if not results:
             return
+
+        # Setup serializer and serialize ALL results if needed
+        # (not just the ones being displayed)
+        serializer = None
+        output_dir = None
+        serialized_contexts = {}
+
+        if serialize_context_exportable_obj:
+            serializer = ContextExportableObjSerializer()
+            if asset_output_dir is None:
+                output_dir = Path("./report/assets")
+            else:
+                output_dir = Path(asset_output_dir)
+
+            # Serialize all results, not just displayed ones
+            for idx, tagged_result in enumerate(results):
+                if tagged_result.result.context is not None:
+                    serialized_contexts[idx] = serializer.serialize_as_file(
+                        tagged_result.result.context, output_dir, f"test_{idx}"
+                    )
 
         all_included_results = [
             tagged_result for tagged_result in results if tagged_result.result.status in self.include_status
@@ -98,6 +136,10 @@ class ConsoleReporter(Reporter):
         for group, test_results in _TaggedResult.group_by_group(all_included_results):
             group_name = group or self.default_group_name
             for result in test_results:
+                # Find the original index in the full results list
+                original_idx = results.index(result)
+                context = serialized_contexts.get(original_idx, result.result.context)
+
                 self._print_test_result(
                     result.result,
                     group_name,
@@ -106,6 +148,7 @@ class ConsoleReporter(Reporter):
                     render_description,
                     render_traceback,
                     render_context,
+                    context,
                 )
                 self.console.print()
                 idx += 1
@@ -130,8 +173,20 @@ class ConsoleReporter(Reporter):
         render_description: bool = True,
         render_traceback: bool = True,
         render_context: bool = True,
+        context: t.Optional[t.Any] = None,
     ) -> None:
-        """Print details of a single test result."""
+        """Print details of a single test result.
+
+        Args:
+            test_result: The test result to print.
+            group_name: Name of the test group.
+            idx: Index of the test result.
+            render_message: Whether to render the message.
+            render_description: Whether to render the description.
+            render_traceback: Whether to render the traceback.
+            render_context: Whether to render the context.
+            context: Optional serialized context to use instead of test_result.context.
+        """
         color = STATUS_COLOR[test_result.status]
 
         group_name_escaped = rich.markup.escape(f"[{group_name}]")
@@ -152,8 +207,11 @@ class ConsoleReporter(Reporter):
             syntax = Syntax(test_result.traceback, "pytb", theme="ansi", line_numbers=False)
             self.console.print(syntax)
 
-        if render_context and test_result.context:
-            self.console.print(f"[{color}]Context:[/{color}] {test_result.context}")
+        if render_context:
+            # Use provided context (possibly serialized) or fallback to test_result.context
+            ctx = context if context is not None else test_result.context
+            if ctx:
+                self.console.print(f"[{color}]Context:[/{color}] {ctx}")
 
         self.console.print("=" * 80)
 
@@ -165,6 +223,7 @@ class HtmlReporter(Reporter):
         output_path: Path where the HTML report should be written.
         template_dir: Optional directory containing custom Jinja2 templates.
         default_group_name: Name to use for ungrouped tests.
+        serializer: Optional custom ContextExportableObjSerializer instance.
     """
 
     def __init__(
@@ -172,9 +231,11 @@ class HtmlReporter(Reporter):
         output_path: t.Union[str, Path],
         template_dir: t.Optional[t.Union[str, Path]] = None,
         default_group_name: str = "Ungrouped",
+        serializer: t.Optional[ContextExportableObjSerializer] = None,
     ):
         self.output_path = Path(output_path)
         self.default_group_name = default_group_name
+        self.serializer = serializer or ContextExportableObjSerializer()
 
         if template_dir:
             self.template_dir = Path(template_dir)
@@ -194,8 +255,21 @@ class HtmlReporter(Reporter):
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
+        serialize_context_exportable_obj: bool = False,
+        **kwargs,
     ) -> None:
-        """Generate HTML report of test results."""
+        """Generate HTML report of test results.
+
+        Args:
+            results: List of tagged test results.
+            statistics: Overall statistics for the test run.
+            render_context: Whether to include test context.
+            render_description: Whether to include test descriptions.
+            render_traceback: Whether to include tracebacks for errors.
+            render_message: Whether to include test result messages.
+            serialize_context_exportable_obj: Whether to serialize ContextExportableObj instances.
+            asset_output_dir: Directory for saving serialized assets (not used for HTML, uses base64).
+        """
         template = self.env.get_template("report.html")
 
         grouped_results = []
@@ -209,10 +283,17 @@ class HtmlReporter(Reporter):
                 suite_name = tr.suite.name
                 if suite_name not in suites:
                     suites[suite_name] = []
+
+                # Serialize context if requested
+                context = tr.result.context
+                if serialize_context_exportable_obj and context is not None:
+                    context = self.serializer.serialize_as_bytes(context)
+
                 suites[suite_name].append(
                     {
                         "result": tr.result,
                         "suite_name": suite_name,
+                        "serialized_context": context,
                     }
                 )
 
@@ -225,6 +306,9 @@ class HtmlReporter(Reporter):
                         {
                             "result": tr.result,
                             "suite_name": tr.suite.name,
+                            "serialized_context": self.serializer.serialize_as_bytes(tr.result.context)
+                            if serialize_context_exportable_obj and tr.result.context is not None
+                            else tr.result.context,
                         }
                         for tr in test_results
                     ],
@@ -239,6 +323,7 @@ class HtmlReporter(Reporter):
             render_description=render_description,
             render_traceback=render_traceback,
             render_message=render_message,
+            serialize_context_exportable_obj=serialize_context_exportable_obj,
         )
 
         self.output_path.write_text(html_content, encoding="utf-8")
