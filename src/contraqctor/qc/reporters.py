@@ -37,8 +37,7 @@ class Reporter(abc.ABC):
     @abc.abstractmethod
     def report_results(
         self,
-        results: t.List[_TaggedResult],
-        statistics: ResultsStatistics,
+        results: dict[str | None, list[Result]] | list[_TaggedResult],
         *,
         render_context: bool = True,
         render_description: bool = True,
@@ -82,8 +81,7 @@ class ConsoleReporter(Reporter):
 
     def report_results(
         self,
-        results: t.List[_TaggedResult],
-        statistics: ResultsStatistics,
+        results: dict[str | None, list[Result]] | list[_TaggedResult],
         *,
         render_context: bool = True,
         render_description: bool = True,
@@ -108,6 +106,7 @@ class ConsoleReporter(Reporter):
         if not results:
             return
 
+        results = _normalize_results(results)
         # Setup serializer and serialize ALL results if needed
         # (not just the ones being displayed)
         serializer = None
@@ -238,7 +237,7 @@ class HtmlReporter(Reporter):
 
     def __init__(
         self,
-        output_path: t.Union[str, Path],
+        output_path: t.Union[str, Path] = "report.html",
         template_dir: t.Optional[t.Union[str, Path]] = None,
         default_group_name: str = "Ungrouped",
         serializer: t.Optional[ContextExportableObjSerializer] = None,
@@ -258,14 +257,13 @@ class HtmlReporter(Reporter):
 
     def report_results(
         self,
-        results: t.List[_TaggedResult],
-        statistics: ResultsStatistics,
+        results: dict[str | None, list[Result]] | list[_TaggedResult],
         *,
         render_context: bool = True,
         render_description: bool = True,
         render_traceback: bool = True,
         render_message: bool = True,
-        serialize_context_exportable_obj: bool = False,
+        serialize_context_exportable_obj: bool = True,
         **kwargs,
     ) -> None:
         """Generate HTML report of test results.
@@ -281,6 +279,8 @@ class HtmlReporter(Reporter):
             asset_output_dir: Directory for saving serialized assets (not used for HTML, uses base64).
         """
         template = self.env.get_template("report.html")
+
+        results = _normalize_results(results)
 
         grouped_results = []
         for group, test_results in _TaggedResult.group_by_group(results):
@@ -327,7 +327,7 @@ class HtmlReporter(Reporter):
 
         html_content = template.render(
             groups=grouped_results,
-            statistics=statistics,
+            statistics=ResultsStatistics.from_results([tr.result for tr in results]),
             status_color=STATUS_COLOR,
             render_context=render_context,
             render_description=render_description,
@@ -339,3 +339,28 @@ class HtmlReporter(Reporter):
         )
 
         self.output_path.write_text(html_content, encoding="utf-8")
+
+
+def _normalize_results(
+    results: dict[str | None, list[Result]] | list[_TaggedResult],
+) -> list[_TaggedResult]:
+    """Normalize results to a list of _TaggedResult instances.
+
+    Args:
+        results: Either a dict mapping group names to lists of Results,
+                 or a list of _TaggedResult instances.
+
+    Returns:
+        A list of _TaggedResult instances.
+    """
+    if isinstance(results, dict):
+        normalized_results = []
+        for group, test_results in results.items():
+            for result in test_results:
+                assert result.suite_reference is not None, "Result must have suite_reference set"
+                normalized_results.append(
+                    _TaggedResult(suite=result.suite_reference, result=result, group=group, test=result.test_reference)
+                )
+        return normalized_results
+    else:
+        return results
