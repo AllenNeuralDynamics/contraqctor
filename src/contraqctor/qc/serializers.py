@@ -311,7 +311,7 @@ class ContextExportableObjSerializer:
                 serializers for matplotlib figures and PIL/numpy images.
         """
         if serializers is None:
-            self.serializers = KNOWN_SERIALIZERS
+            self.serializers: t.List[ITypeSerializer] = t.cast(t.List[ITypeSerializer], KNOWN_SERIALIZERS.copy())
         else:
             self.serializers = serializers
 
