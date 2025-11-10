@@ -123,3 +123,30 @@ class TestRunner:
             assert stats[Status.ERROR] == 2
             assert stats[Status.SKIPPED] == 2
             assert stats[Status.WARNING] == 2
+
+    def test_run_all(self):
+        """Test running all tests without progress reporting."""
+
+        runner = Runner()
+        suite1 = MockSuite()
+        suite2 = MockSuite()
+
+        runner.add_suite(suite1)  # Default group (None)
+        runner.add_suite(suite2, group="TestGroup")
+
+        grouped_results = runner.run_all()
+
+        assert None in grouped_results
+        assert "TestGroup" in grouped_results
+
+        assert len(grouped_results[None]) == 6  # All tests in MockSuite
+        assert len(grouped_results["TestGroup"]) == 6  # All tests in MockSuite
+
+        all_results = grouped_results[None] + grouped_results["TestGroup"]
+        stats = ResultsStatistics.from_results(all_results)
+
+        assert stats[Status.PASSED] == 4
+        assert stats[Status.FAILED] == 2
+        assert stats[Status.ERROR] == 2
+        assert stats[Status.SKIPPED] == 2
+        assert stats[Status.WARNING] == 2

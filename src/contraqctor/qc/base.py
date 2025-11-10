@@ -792,6 +792,7 @@ class Suite(abc.ABC):
         Yields:
             Result: Result objects produced by all test methods.
         """
+
         for test in self.get_tests():
             yield from self.run_test(test)
 
@@ -1255,6 +1256,34 @@ class Runner:
         status_bar = self._render_status_bar(stats, bar_width)
         summary_line = f"[cyan]{suite_name:<{suite_name_width}} | {status_bar} | {stats.get_status_summary()}"
         progress.update(suite_task, description=summary_line)
+
+    def run_all(self) -> t.Dict[t.Optional[str], t.List[Result]]:
+        """Run all tests in all suites without progress display.
+
+        Executes all tests and collects results without visual progress reporting.
+
+        Returns:
+            Dict[Optional[str], List[Result]]: Results grouped by test group name.
+        """
+        collected_tests = self._collect_tests()
+        collected_results: t.List[_TaggedResult] = []
+
+        for group, tests_in_group in _TaggedTest.group_by_group(collected_tests):
+            for suite, tests_in_suite in _TaggedTest.group_by_suite(tests_in_group):
+                results: t.List[Result] = []
+                for test in tests_in_suite:
+                    results.extend(suite.run_test(test.test))
+                for result in results:
+                    collected_results.append(
+                        _TaggedResult(suite=suite, group=group, result=result, test=result.test_reference)
+                    )
+
+        self._results = collected_results
+
+        out: t.Dict[t.Optional[str], t.List[Result]] = {}
+        for group, grouped_results in _TaggedResult.group_by_group(collected_results):
+            out[group] = [tagged_result.result for tagged_result in grouped_results]
+        return out
 
     def run_all_with_progress(
         self,
