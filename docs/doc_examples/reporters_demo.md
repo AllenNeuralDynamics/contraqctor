@@ -4,10 +4,10 @@ This page demonstrates how to use the Reporter module.
 
 ## Example Code for HTML Reporter
 
-The following example shows how to run QC tests using the HTML reporter:
+The following example shows how to run QC tests using the HTML and Console reporters:
 
 ```python
---8<-- "examples/html_reporter_demo.py"
+--8<-- "examples/reporters_demo.py"
 ```
 
 ## Exporting Context Exportable Objects
