@@ -163,7 +163,12 @@ class HarpDeviceTestSuite(Suite):
 
                     if len(requests) != len(replies):
                         reg_error.append(
-                            {"register": req_reg.name, "requests": len(requests), "responses": len(replies)}
+                            {
+                                "register": req_reg.name,
+                                "requests": len(requests),
+                                "responses": len(replies),
+                                "requests_timestamps": [f"{x:.6f}" for x in requests.index],
+                            }
                         )
 
         if len(reg_error) == 0:
