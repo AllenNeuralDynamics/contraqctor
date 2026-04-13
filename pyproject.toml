@@ -14,7 +14,7 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
 ]
 version = "0.5.3"
-readme = {file = "README.md", content-type = "text/markdown"}
+readme = { file = "README.md", content-type = "text/markdown" }
 
 dependencies = [
     'aind_behavior_services',
@@ -41,7 +41,7 @@ Changelog = "https://github.com/AllenNeuralDynamics/contraqctor/releases"
 
 [dependency-groups]
 
-dev = ['codespell', 'pytest', 'pytest-cov', 'ruff', 'interrogate']
+dev = ['codespell', 'pytest', 'pytest-cov', 'pytest-env', 'ruff', 'interrogate']
 
 docs = [
     'mkdocs',
