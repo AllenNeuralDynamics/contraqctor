@@ -293,7 +293,7 @@ wheels = [
 
 [[package]]
 name = "contraqctor"
-version = "0.5.3"
+version = "0.5.4rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aind-behavior-services" },
