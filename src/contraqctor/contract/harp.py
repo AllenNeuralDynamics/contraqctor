@@ -10,6 +10,7 @@ import harp.reader
 import pandas as pd
 import requests
 import yaml
+from harp.model import Visibility
 from pydantic import AnyHttpUrl, BaseModel, Field, dataclasses
 from typing_extensions import TypeAliasType, override
 
@@ -185,6 +186,7 @@ class HarpDeviceParams(FilePathBaseParam):
         default=None,
         description="Reference datetime at which time zero begins. If specified, the result data frame will have a datetime index.",
     )
+    show_private: bool = Field(default=False, description="Whether to show private registers")
 
 
 def _harp_device_reader(
@@ -249,7 +251,10 @@ def _harp_device_reader(
 
     for name, reg_reader in reader.registers.items():
         # todo we can add custom file name interpolation here
-        data_streams.append(HarpRegister.from_register_reader(name, reg_reader, _DEFAULT_HARP_READER_PARAMS))
+        register = HarpRegister.from_register_reader(name, reg_reader, _DEFAULT_HARP_READER_PARAMS)
+        if (not params.show_private) and (reg_reader.register.visibility == Visibility.private):
+            continue
+        data_streams.append(register)
     return (data_streams, reader)
 
 
