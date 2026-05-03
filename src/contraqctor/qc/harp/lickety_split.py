@@ -12,6 +12,7 @@ from .harp_device import HarpDeviceTypeTestSuite
 
 @dataclass(frozen=True)
 class _LickDurationMetrics:
+    """Data class for metrics related to lick duration analysis."""
     mean: float | None
     std: float | None
     percent_violations: float
