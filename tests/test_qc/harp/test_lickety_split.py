@@ -156,3 +156,10 @@ class TestHarpLicketySplitTestSuite:
         assert result.status == Status.WARNING
         assert result.message is not None
         assert result.context is not None
+
+    def test_lick_duration_no_licks(self, mock_lickety_split_device_low_rate):
+        suite = HarpLicketySplitTestSuite(mock_lickety_split_device_low_rate)
+        result = suite.test_lick_duration()
+        assert result.status == Status.FAILED
+        assert result.message is not None
+        assert result.context is not None
