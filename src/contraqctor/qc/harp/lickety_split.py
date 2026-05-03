@@ -1,3 +1,5 @@
+from dataclasses import asdict, dataclass
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -6,6 +8,19 @@ from typing_extensions import override
 from ...contract.harp import HarpDevice
 from .._context_extensions import ContextExportableObj
 from .harp_device import HarpDeviceTypeTestSuite
+
+
+@dataclass(frozen=True)
+class _LickDurationMetrics:
+    mean: float | None
+    std: float | None
+    percent_violations: float
+    total_licks: int
+    num_violations: int
+    max: float | None
+    min: float | None
+    num_long_violations: int
+    num_short_violations: int
 
 
 class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
@@ -121,7 +136,25 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         """Tests for licks that are shorter than the expected duration."""
         limits = (0.015, 1)  # in seconds
         lick = self._get_distinct_from_channel(self.data, self._target_channel)
-        first_lick_onset = lick[lick == 1].index[0]
+        lick_onsets = lick[lick == 1]
+        if len(lick_onsets) == 0:
+            metrics = _LickDurationMetrics(
+                mean=None,
+                std=None,
+                percent_violations=0.0,
+                total_licks=0,
+                num_violations=0,
+                max=None,
+                min=None,
+                num_long_violations=0,
+                num_short_violations=0,
+            )
+            metrics_dict = asdict(metrics)
+            return self.fail_test(
+                metrics_dict, "No lick onsets detected; unable to evaluate lick duration.", context=metrics_dict
+            )
+
+        first_lick_onset = lick_onsets.index[0]
         lick = lick[first_lick_onset:]
         lick_durations = lick[lick == 0].index - lick[lick == 1].index
 
@@ -141,26 +174,27 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         long.set_ylabel("Count")
 
         fig.tight_layout()
-        context = ContextExportableObj.as_context(fig)
 
-        metrics = {}
-        metrics["mean"] = np.mean(lick_durations) if len(lick_durations) > 0 else None
-        metrics["std"] = np.std(lick_durations) if len(lick_durations) > 0 else None
-        metrics["percent_violations"] = (
-            np.sum((lick_durations < limits[0]) | (lick_durations > limits[1])) / len(lick_durations)
-            if len(lick_durations) > 0
-            else 0.0
+        metrics = _LickDurationMetrics(
+            mean=float(np.mean(lick_durations)) if len(lick_durations) > 0 else None,
+            std=float(np.std(lick_durations)) if len(lick_durations) > 0 else None,
+            percent_violations=(
+                float(np.sum((lick_durations < limits[0]) | (lick_durations > limits[1])) / len(lick_durations))
+                if len(lick_durations) > 0
+                else 0.0
+            ),
+            total_licks=len(lick_durations),
+            num_violations=int(np.sum((lick_durations < limits[0]) | (lick_durations > limits[1]))),
+            max=float(np.max(lick_durations)) if len(lick_durations) > 0 else None,
+            min=float(np.min(lick_durations)) if len(lick_durations) > 0 else None,
+            num_long_violations=int(np.sum(lick_durations > limits[1])),
+            num_short_violations=int(np.sum(lick_durations < limits[0])),
         )
-        metrics["total_licks"] = len(lick_durations)
-        metrics["num_violations"] = int(np.sum((lick_durations < limits[0]) | (lick_durations > limits[1])))
-        metrics["max"] = np.max(lick_durations) if len(lick_durations) > 0 else None
-        metrics["min"] = np.min(lick_durations) if len(lick_durations) > 0 else None
-        metrics["num_long_violations"] = int(np.sum(lick_durations > limits[1]))
-        metrics["num_short_violations"] = int(np.sum(lick_durations < limits[0]))
-        context.update(metrics)
+        metrics_dict = asdict(metrics)
+        context = {**ContextExportableObj.as_context(fig), **metrics_dict}
 
-        if metrics["num_long_violations"] > 0:
-            return self.warn_test(metrics, "Long lick duration violations detected.", context=context)
-        if metrics["percent_violations"] > 0.05:
-            return self.warn_test(metrics, "High number of lick duration violations (>5%).", context=context)
-        return self.pass_test(metrics, "Lick duration distribution within expected range.", context=context)
+        if metrics.num_long_violations > 0:
+            return self.warn_test(metrics_dict, "Long lick duration violations detected.", context=context)
+        if metrics.percent_violations > 0.05:
+            return self.warn_test(metrics_dict, "High number of lick duration violations (>5%).", context=context)
+        return self.pass_test(metrics_dict, "Lick duration distribution within expected range.", context=context)
