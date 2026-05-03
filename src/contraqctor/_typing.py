@@ -1,12 +1,11 @@
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeAlias, TypeVar, Union, cast, final
-
 if TYPE_CHECKING:
     from contraqctor.contract.base import DataStream
 else:
     DataStream = Any  # type: ignore
 
 # Type variables
-TData = TypeVar("TData", bound=Union[Any, "_UnsetData", "ErrorOnLoad"])
+TData = TypeVar("TData", bound=Union[Any, "_UnsetData", "ErrorOnLoad"], default=Any)
 """TypeVar: Type variable bound to Union[Any, "_UnsetData", "ErrorOnLoad"] for data types."""
 
 TReaderParams = TypeVar("TReaderParams", contravariant=True)
@@ -162,6 +161,34 @@ def is_unset(obj: Any) -> bool:
         True if the object is an unset sentinel value, False otherwise.
     """
     return (obj is UnsetReader) or (obj is UnsetParams) or (obj is UnsetData)
+
+
+@final
+class Maybe(Generic[TData]):
+    """A class representing data that may or may not have errored during reading"""
+    def __init__(self, data: TData | None, error: Exception | None) -> None:
+        self._error = error
+        self._data = data
+
+    def has_data(self) -> bool:
+        return self._error is None
+    
+    def has_error(self) -> bool:
+        return self.error is not None
+
+    @property
+    def error(self) -> Exception:
+        if self.has_error():
+            return self._error
+        else:
+            raise ValueError("The datastream did not throw an error on load")
+    
+    @property
+    def data(self)-> TData:
+        if self.has_data():
+            return self.data
+        else:
+            raise ValueError("The datastream threw an error on load")
 
 
 @final
