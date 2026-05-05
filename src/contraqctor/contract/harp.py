@@ -252,8 +252,6 @@ def _harp_device_reader(
     for name, reg_reader in reader.registers.items():
         # todo we can add custom file name interpolation here
         register = HarpRegister.from_register_reader(name, reg_reader, _DEFAULT_HARP_READER_PARAMS)
-        if (not params.show_private) and (reg_reader.register.visibility == Visibility.private):
-            continue
         data_streams.append(register)
     return (data_streams, reader)
 
@@ -278,6 +276,7 @@ def _make_device_reader(yml_stream: str | os.PathLike | TextIO, params: HarpDevi
             HarpRegisterParams(base_path=base_path, epoch=params.epoch, keep_type=params.keep_type),
         )
         for name in device.registers.keys()
+        if params.show_private or device.registers[name].visibility != Visibility.private
     }
     return harp.reader.DeviceReader(device, reg_readers)
 
