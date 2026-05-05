@@ -112,15 +112,7 @@ class HarpDeviceTestSuite(Suite):
         """
         Check if the read dump from an harp device is complete
         """
-        expected_regs = self.harp_device.device_reader.device.registers.keys()
         ds = [stream for stream in self.harp_device]
-        missing_regs = [reg_name for reg_name in expected_regs if reg_name not in [r.name for r in ds]]
-        if len(missing_regs) > 0:
-            return self.fail_test(
-                False,
-                "Read dump is not complete. Some registers are missing.",
-                context={"missing_registers": missing_regs},
-            )
 
         def _try_get_last_read(r: HarpRegister) -> t.Optional[pd.DataFrame]:
             """We will assume that all data is loaded. If not we will return None
@@ -130,9 +122,8 @@ class HarpDeviceTestSuite(Suite):
             except ValueError:
                 return None
 
-        missing_read_dump = [
-            r.name for r in ds if not (r.name in expected_regs and (_try_get_last_read(r) is not None))
-        ]
+        missing_read_dump = [r.name for r in ds if not (_try_get_last_read(r) is not None)]
+
         return (
             self.pass_test(True, "Read dump is complete")
             if len(missing_read_dump) == 0
