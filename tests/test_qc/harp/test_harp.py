@@ -264,7 +264,11 @@ class TestHarpDeviceTestSuite:
         result = suite.test_read_dump_is_complete()
         assert result.status == Status.PASSED
 
-        suite.harp_device.device_reader.device.registers["MissingReg"] = {}
+        no_read_df = pd.DataFrame(
+            {"NoReadReg": [1], "MessageType": ["WRITE"]},
+            index=pd.Index([1.0], name="Seconds"),
+        )
+        suite.harp_device._registers["NoReadReg"] = MockHarpRegister("NoReadReg", no_read_df)
         result = suite.test_read_dump_is_complete()
         assert result.status == Status.FAILED
         assert "missing_registers" in result.context
