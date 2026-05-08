@@ -198,13 +198,13 @@ class TestHarpSniffDetectorTestSuite:
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
         result = suite.test_signal_quality()
         assert result.status == Status.PASSED
-        assert "Signal quality is good" in result.message
+        assert "All quality checks passed." in result.message
         assert "context" in dir(result)
 
         suite = HarpSniffDetectorTestSuite(mock_sniff_device_bad_quality)
         result = suite.test_signal_quality()
         assert result.status == Status.FAILED
-        assert "Signal quality is not good" in result.message
+        assert "Some quality checks failed" in result.message
 
         metrics = result.context
         assert "quantization_ratio" in metrics
