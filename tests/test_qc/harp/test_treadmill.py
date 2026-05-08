@@ -51,7 +51,7 @@ class MockHarpDevice:
             time_index = np.linspace(0, 10, 1000)
             np.random.seed(0)
             encoder = np.cumsum(np.random.randint(1, 5, len(time_index)))
-            torque = np.random.uniform(100, 2000, len(time_index))
+            torque = np.random.uniform(1000, 3000, len(time_index))
             sensor_df = pd.DataFrame(
                 {
                     "Encoder": encoder,
@@ -154,8 +154,8 @@ class TestHarpTreadmillTestSuite:
     def test_init(self, mock_treadmill_device):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
         assert suite.harp_device == mock_treadmill_device
-        assert "Encoder" in suite.data.columns
-        assert "Torque" in suite.data.columns
+        assert "Encoder" in suite._data.columns
+        assert "Torque" in suite._data.columns
 
     def test_sampling_rate(self, mock_treadmill_device, mock_treadmill_device_bad_rate):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
@@ -172,24 +172,24 @@ class TestHarpTreadmillTestSuite:
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
         result = suite.test_encoder()
         assert result.status == Status.PASSED
-        assert result.message is not None and "Total ticks is" in result.message
-        assert result.context is None or "total_ticks" in result.context
+        assert result.message is not None and "All encoder metrics" in result.message
+        assert "total_ticks" in result.result
 
         suite = HarpTreadmillTestSuite(mock_treadmill_device_zero_ticks)
         result = suite.test_encoder()
         assert result.status == Status.FAILED
         assert result.message is not None and "Total ticks is zero" in result.message
 
-    def test_torque(self, mock_treadmill_device, mock_treadmill_device_bad_torque):
+    def test_torque_range(self, mock_treadmill_device, mock_treadmill_device_bad_torque):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
-        result = suite.test_torque()
+        result = suite.test_torque_range()
         assert result.status == Status.PASSED
         assert result.message is not None
         assert result.result is not None
 
         suite = HarpTreadmillTestSuite(mock_treadmill_device_bad_torque)
-        result = suite.test_torque()
-        assert result.status == Status.WARNING
+        result = suite.test_torque_range()
+        assert result.status == Status.FAILED
         assert result.message is not None
         assert result.result is not None
 
