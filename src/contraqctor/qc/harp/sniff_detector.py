@@ -115,20 +115,37 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         sudden_jumps_ratio = (np.sum(np.abs(derivative) > 3 * np.std(derivative))) / TOTAL_SAMPLES
         metrics["sudden_jumps_ratio"] = sudden_jumps_ratio
 
-        is_ok = (
-            metrics["quantization_ratio"] > self.quantization_ratio_thr
-            and metrics["clustering_ratio"] < self.clustering_thr
-            and metrics["min_clipping"] < self.clipping_thr
-            and metrics["max_clipping"] < self.clipping_thr
-            and metrics["sudden_jumps_ratio"] < self.sudden_jumps_thr
-        )
+        tests = {
+            "quantization_ratio": (
+                metrics["quantization_ratio"] > self.quantization_ratio_thr,
+                "Quantization ratio is too low. Expected at least {:.2f}% of the full bit depth".format(
+                    self.quantization_ratio_thr * 100
+                ),
+            ),
+            "clustering_ratio": (
+                metrics["clustering_ratio"] < self.clustering_thr,
+                f"Clustering ratio is too high. Expected less than {self.clustering_thr:.2f}",
+            ),
+            "min_clipping": (
+                metrics["min_clipping"] < self.clipping_thr,
+                f"Too much clipping at the minimum value. Expected less than {self.clipping_thr:.2f}",
+            ),
+            "max_clipping": (
+                metrics["max_clipping"] < self.clipping_thr,
+                f"Too much clipping at the maximum value. Expected less than {self.clipping_thr:.2f}",
+            ),
+            "sudden_jumps_ratio": (
+                metrics["sudden_jumps_ratio"] < self.sudden_jumps_thr,
+                f"Too many sudden jumps in the signal. Expected less than {self.sudden_jumps_thr:.2f} of the samples to have sudden jumps.",
+            ),
+        }
 
-        if is_ok:
-            return self.pass_test(True, "Signal quality is good", context=metrics)
+        if all(test[0] for test in tests.values()):
+            return self.pass_test(metrics, "All quality checks passed.", context=metrics)
         else:
             return self.fail_test(
-                False,
-                "Signal quality is not good",
+                metrics,
+                "Some quality checks failed: " + "; ".join([test[1] for test in tests.values() if not test[0]]),
                 context=metrics,
             )
 
