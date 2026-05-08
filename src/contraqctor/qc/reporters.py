@@ -203,7 +203,8 @@ class ConsoleReporter(Reporter):
             f"[bold {color}]{idx}. {group_name_escaped} {test_result.suite_name}.{test_result.test_name}[/bold {color}]"
         )
 
-        self.console.print(f"[{color}]Result:[/{color}] {test_result.result}")
+        result_str = "" if test_result.result is None else test_result.result
+        self.console.print(f"[{color}]Result:[/{color}] {result_str}")
 
         if render_message and test_result.message:
             self.console.print(f"[{color}]Message:[/{color}] {test_result.message}")
