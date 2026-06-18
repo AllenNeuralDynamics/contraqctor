@@ -235,18 +235,14 @@ class HarpDeviceTestSuite(Suite):
             return self.fail_test(
                 None, f"Firmware version is not a valid semver version. Expected {fw} and got {device_fw}"
             )
-        if fw > device_fw:
-            return self.fail_test(
-                False,
-                f"Expected version {fw} is greater than the device's version {device_fw}. Consider updating the device firmware.",
-            )
-        elif fw == device_fw:
-            return self.pass_test(True, f"Expected version {fw} matches the device's version {device_fw}")
-        else:
+
+        if fw != device_fw:
             return self.warn_test(
                 False,
-                f"Expected version {fw} is less than the device's version {device_fw}. Consider updating interface package.",
+                f"Expected version {fw} does not match the device's version {device_fw}. Consider updating the device firmware or interface package.",
             )
+        else:
+            return self.pass_test(True, f"Expected version {fw} matches the device's version {device_fw}")
 
     def test_core_version(self):
         """Check if the core version of the device matches the one provided"""

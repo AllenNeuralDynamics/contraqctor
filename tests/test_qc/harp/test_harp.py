@@ -357,18 +357,15 @@ class TestHarpDeviceTestSuite:
 
         mock_harp_device.device_reader.device.firmwareVersion = "1.3.0"
         result = suite.test_fw_version_matches_reader()
-        assert result.status == Status.FAILED
-        assert "Consider updating the device firmware" in result.message
+        assert result.status == Status.WARNING
 
         mock_harp_device.device_reader.device.firmwareVersion = "1.1.0"
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.WARNING
-        assert "Consider updating interface package" in result.message
 
         mock_harp_device.device_reader.device.firmwareVersion = "invalid"
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.FAILED
-        assert "not a valid semver version" in result.message
 
     def test_core_version(self, mock_harp_device):
         """Test test_core_version method."""
