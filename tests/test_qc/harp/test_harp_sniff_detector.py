@@ -144,6 +144,7 @@ class TestHarpSniffDetectorTestSuite:
     def test_init(self, mock_sniff_device):
         """Test initializing the HarpSniffDetectorTestSuite."""
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
+        suite.setup_suite()
 
         # Check defaults
         assert suite.harp_device == mock_sniff_device
@@ -184,11 +185,13 @@ class TestHarpSniffDetectorTestSuite:
     def test_sniff_detector_sampling_rate(self, mock_sniff_device, mock_sniff_device_bad_rate):
         """Test test_sniff_detector_sampling_rate method."""
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
+        suite.setup_suite()
         result = suite.test_sampling_rate()
         assert result.status == Status.PASSED
         assert "Sampling rate is" in result.message
 
         suite = HarpSniffDetectorTestSuite(mock_sniff_device_bad_rate)
+        suite.setup_suite()
         result = suite.test_sampling_rate()
         assert result.status == Status.FAILED
         assert "not within nominal values" in result.message
@@ -196,12 +199,14 @@ class TestHarpSniffDetectorTestSuite:
     def test_sniff_detector_signal_quality(self, mock_sniff_device, mock_sniff_device_bad_quality):
         """Test test_sniff_detector_signal_quality method."""
         suite = HarpSniffDetectorTestSuite(mock_sniff_device)
+        suite.setup_suite()
         result = suite.test_signal_quality()
         assert result.status == Status.PASSED
         assert "All quality checks passed." in result.message
         assert "context" in dir(result)
 
         suite = HarpSniffDetectorTestSuite(mock_sniff_device_bad_quality)
+        suite.setup_suite()
         result = suite.test_signal_quality()
         assert result.status == Status.FAILED
         assert "Some quality checks failed" in result.message

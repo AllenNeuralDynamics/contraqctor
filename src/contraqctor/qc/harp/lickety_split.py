@@ -74,9 +74,21 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         """
         super().__init__(harp_device)
         self.harp_device = harp_device
-        self.data: pd.DataFrame = self.harp_device["LickState"].data.copy()
-        self.data = self.data[self.data["MessageType"] == "EVENT"]
         self.lick_refractory_period = lick_refractory_period
+        self.data: pd.DataFrame
+
+    @override
+    def setup_suite(self) -> None:
+        """Load the lick-state event data.
+
+        Data reads are deferred out of ``__init__`` and into ``setup_suite`` (which
+        the runner calls once per suite inside its exception-handling block) so that
+        a missing/corrupt ``LickState`` register surfaces as a failed test rather
+        than crashing suite construction. See :class:`contraqctor.qc.base.Suite`.
+        """
+        super().setup_suite()
+        data = self.harp_device["LickState"].data.copy()
+        self.data = data[data["MessageType"] == "EVENT"]
 
     @staticmethod
     def _get_distinct_from_channel(data: pd.DataFrame, channel: str):

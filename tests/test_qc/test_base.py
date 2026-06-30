@@ -286,3 +286,119 @@ class TestSuite:
         exception_suite = ExceptionSuite()
         exception_result = list(exception_suite.run_test(exception_suite.test_exception))[0]
         assert exception_result.suite_reference is exception_suite
+
+    def test_setup_suite_not_called_at_construction_or_collection(self):
+        """Data loading deferred to setup_suite must not run at construction or collection.
+
+        Regression test: I/O belongs in ``setup_suite`` (not ``__init__``) so that a
+        load error is captured by the runner. Neither constructing the suite nor
+        discovering its tests should trigger ``setup_suite``.
+        """
+
+        class LazySuite(Suite):
+            def __init__(self):
+                self.setup_suite_calls = 0
+
+            def setup_suite(self):
+                self.setup_suite_calls += 1
+                raise FileNotFoundError("register .bin missing")
+
+            def test_uses_data(self):
+                return self.pass_test(True)
+
+            def test_independent(self):
+                return self.pass_test(True)
+
+        # Construction must be side-effect free.
+        suite = LazySuite()
+        assert suite.setup_suite_calls == 0
+
+        # Collecting tests must not call setup_suite either.
+        test_names = sorted(m.__name__ for m in suite.get_tests())
+        assert test_names == ["test_independent", "test_uses_data"]
+        assert suite.setup_suite_calls == 0
+
+    def test_setup_suite_runs_once_per_suite(self):
+        """setup_suite/teardown_suite run once per suite, not once per test."""
+
+        class LifecycleSuite(Suite):
+            def __init__(self):
+                self.setup_suite_calls = 0
+                self.teardown_suite_calls = 0
+                self.setup_calls = 0
+
+            def setup_suite(self):
+                self.setup_suite_calls += 1
+
+            def teardown_suite(self):
+                self.teardown_suite_calls += 1
+
+            def setup(self):
+                self.setup_calls += 1
+
+            def test_a(self):
+                return self.pass_test(True)
+
+            def test_b(self):
+                return self.pass_test(True)
+
+        suite = LifecycleSuite()
+        results = list(suite.run_all())
+
+        assert len(results) == 2
+        assert all(r.status == Status.PASSED for r in results)
+        # Suite-level hooks run exactly once; per-test setup runs per test.
+        assert suite.setup_suite_calls == 1
+        assert suite.teardown_suite_calls == 1
+        assert suite.setup_calls == 2
+
+    def test_failing_setup_suite_surfaces_as_test_results(self):
+        """A failing setup_suite errors every test in the suite, not a construction crash."""
+
+        class LazySuite(Suite):
+            def __init__(self):
+                self.teardown_suite_calls = 0
+
+            def setup_suite(self):
+                raise FileNotFoundError("register .bin missing")
+
+            def teardown_suite(self):
+                self.teardown_suite_calls += 1
+
+            def test_uses_data(self):
+                return self.pass_test(True)
+
+            def test_independent(self):
+                return self.pass_test(True)
+
+        # Construction must not raise even though setup_suite would fail.
+        suite = LazySuite()
+        results = {r.test_name: r for r in suite.run_all()}
+
+        # Every test errors because suite setup failed before any test ran.
+        assert results["test_independent"].status == Status.ERROR
+        assert results["test_uses_data"].status == Status.ERROR
+        assert isinstance(results["test_uses_data"].exception, FileNotFoundError)
+        # teardown_suite must NOT run when setup_suite failed (mirrors unittest).
+        assert suite.teardown_suite_calls == 0
+
+    def test_failing_setup_suite_via_runner(self):
+        """The Runner also captures a failing setup_suite as errored tests."""
+
+        class LazySuite(Suite):
+            def setup_suite(self):
+                raise FileNotFoundError("register .bin missing")
+
+            def test_a(self):
+                return self.pass_test(True)
+
+            def test_b(self):
+                return self.pass_test(True)
+
+        from contraqctor.qc.base import Runner
+
+        runner = Runner().add_suite(LazySuite())
+        results = runner.run_all()
+        flat = [r for group in results.values() for r in group]
+        assert len(flat) == 2
+        assert all(r.status == Status.ERROR for r in flat)

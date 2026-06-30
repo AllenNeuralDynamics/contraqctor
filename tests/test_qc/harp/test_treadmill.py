@@ -153,41 +153,48 @@ def mock_treadmill_device_tripwire():
 class TestHarpTreadmillTestSuite:
     def test_init(self, mock_treadmill_device):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
+        suite.setup_suite()
         assert suite.harp_device == mock_treadmill_device
         assert "Encoder" in suite._data.columns
         assert "Torque" in suite._data.columns
 
     def test_sampling_rate(self, mock_treadmill_device, mock_treadmill_device_bad_rate):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
+        suite.setup_suite()
         result = suite.test_sampling_rate()
         assert result.status == Status.PASSED
         assert result.message is not None and "Sampling rate is" in result.message
 
         suite = HarpTreadmillTestSuite(mock_treadmill_device_bad_rate)
+        suite.setup_suite()
         result = suite.test_sampling_rate()
         assert result.status == Status.FAILED
         assert result.message is not None and "not within nominal values" in result.message
 
     def test_encoder(self, mock_treadmill_device, mock_treadmill_device_zero_ticks):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
+        suite.setup_suite()
         result = suite.test_encoder()
         assert result.status == Status.PASSED
         assert result.message is not None and "All encoder metrics" in result.message
         assert "total_ticks" in result.result
 
         suite = HarpTreadmillTestSuite(mock_treadmill_device_zero_ticks)
+        suite.setup_suite()
         result = suite.test_encoder()
         assert result.status == Status.FAILED
         assert result.message is not None and "Total ticks is zero" in result.message
 
     def test_torque_range(self, mock_treadmill_device, mock_treadmill_device_bad_torque):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
+        suite.setup_suite()
         result = suite.test_torque_range()
         assert result.status == Status.PASSED
         assert result.message is not None
         assert result.result is not None
 
         suite = HarpTreadmillTestSuite(mock_treadmill_device_bad_torque)
+        suite.setup_suite()
         result = suite.test_torque_range()
         assert result.status == Status.FAILED
         assert result.message is not None
