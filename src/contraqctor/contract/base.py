@@ -386,7 +386,10 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
         """
         errors = []
         if self.has_error:
+            # A stream that errored on load has no valid data to traverse into,
+            # so we report its own error and stop here (iterating would re-raise).
             errors.append(cast(_typing.ErrorOnLoad, self._data))
+            return errors
         for stream in self:
             if stream is None:
                 continue
@@ -418,6 +421,13 @@ class DataStream(abc.ABC, Generic[_typing.TData, _typing.TReaderParams]):
             ```
         """
         self.load()
+        if self.has_error:
+            if strict:
+                cast(_typing.ErrorOnLoad, self._data).raise_from_error()
+            # In non-strict mode the collection failed to load its own children,
+            # so there is nothing further to recurse into; the error is preserved
+            # and surfaced via collect_errors().
+            return self
         for stream in self:
             if stream is None:
                 continue
@@ -539,16 +549,21 @@ class DataStreamCollectionBase(
 
         Overrides the base method to add validation that loaded data is a list of DataStreams.
 
+        If the underlying read raised, the error is preserved as an ``ErrorOnLoad`` (as in the
+        base implementation) rather than re-raised, so that non-strict loading can collect it.
+        A non-list result from a *successful* read is a genuine contract violation and is captured
+        as an ``ErrorOnLoad`` as well.
+
         Returns:
             Self: The collection instance for method chaining.
-
-        Raises:
-            ValueError: If loaded data is not a list of DataStreams.
         """
         super().load()
+        if self.has_error:
+            # read() raised and was captured as an ErrorOnLoad; leave it in place.
+            return self
         if not isinstance(self._data, list):
-            self._data = _typing.UnsetData
-            raise ValueError("Data must be a list of DataStreams.")
+            self._data = _typing.ErrorOnLoad(self, exception=ValueError("Data must be a list of DataStreams."))
+            return self
         self._update_data_stream_mapping()
         return self
 

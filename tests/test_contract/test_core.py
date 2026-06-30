@@ -2,7 +2,24 @@ import pytest
 from conftest import SimpleDataStream, SimpleParams
 
 from contraqctor import _typing
-from contraqctor.contract.base import DataStream, DataStreamCollection, implicit_loading
+from contraqctor.contract.base import (
+    DataStream,
+    DataStreamCollection,
+    DataStreamCollectionBase,
+    implicit_loading,
+)
+
+
+class _FailingCollection(DataStreamCollectionBase[DataStream, SimpleParams]):
+    """A collection whose own reader raises, mimicking e.g. a HarpDevice pointed at a missing folder."""
+
+    @staticmethod
+    def _reader(params: SimpleParams) -> list:
+        with open(params.path, "r") as f:
+            f.read()
+        return []
+
+    make_params = SimpleParams
 
 
 class TestDataStream:
@@ -435,3 +452,53 @@ class TestLoadAllChildren:
 
         with pytest.raises(FileNotFoundError):
             collection.load_all(strict=True)
+
+    def test_load_all_non_strict_with_failing_collection(self, text_file, temp_dir):
+        """Non-strict load_all should not raise when a collection's own read() fails."""
+        working = SimpleDataStream(name="working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent_folder" / "device.yml"
+        failing_collection = _FailingCollection(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        root = DataStreamCollection(name="root", data_streams=[working, failing_collection])
+
+        # Should not raise, even though the sub-collection's own read() fails.
+        result = root.load_all(strict=False)
+
+        errors = result.collect_errors()
+        assert len(errors) == 1
+        assert errors[0].data_stream == failing_collection
+        assert isinstance(errors[0].exception, FileNotFoundError)
+
+        assert failing_collection.has_error
+        assert root.at("working").has_data
+
+    def test_load_all_strict_with_failing_collection(self, temp_dir):
+        """Strict load_all should raise the original error when a collection's own read() fails."""
+        nonexistent_path = temp_dir / "nonexistent_folder" / "device.yml"
+        failing_collection = _FailingCollection(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        root = DataStreamCollection(name="root", data_streams=[failing_collection])
+
+        with pytest.raises(FileNotFoundError):
+            root.load_all(strict=True)
+
+    def test_load_collection_non_list_result_is_captured(self, temp_dir):
+        """A successful read returning a non-list is captured as an ErrorOnLoad, not raised."""
+        bad_file = temp_dir / "bad.txt"
+        bad_file.write_text("not a list")
+
+        class _BadResultCollection(DataStreamCollectionBase[DataStream, SimpleParams]):
+            @staticmethod
+            def _reader(params: SimpleParams) -> list:
+                with open(params.path, "r") as f:
+                    return f.read()  # returns a str, not a list
+
+            make_params = SimpleParams
+
+        collection = _BadResultCollection(name="bad", reader_params=SimpleParams(path=bad_file))
+
+        collection.load()
+        assert collection.has_error
+        with pytest.raises(ValueError, match="Data must be a list of DataStreams."):
+            collection.collect_errors()[0].raise_from_error()
