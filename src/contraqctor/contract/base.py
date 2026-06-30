@@ -605,10 +605,17 @@ class DataStreamCollectionBase(
     def __iter__(self) -> Generator[DataStream, None, None]:
         """Iterator for child data streams.
 
-        Yields:
-            DataStream: Child data streams.
+        A collection that failed to load has no valid children to traverse, so it
+        yields nothing rather than re-raising its stored ``ErrorOnLoad``. This keeps
+        traversal consistent with ``load_all(strict=False)``: a partially-loaded
+        hierarchy stays iterable, and load errors remain retrievable via
+        :meth:`collect_errors`. Accessing a stream's ``.data`` directly still raises.
 
+        Yields:
+            DataStream: Child data streams (none if this collection failed to load).
         """
+        if self.has_error:
+            return
         # We intentionally yield from self.data to trigger
         # automatic loading if needed
         yield from self.data
@@ -616,7 +623,9 @@ class DataStreamCollectionBase(
     def iter_all(self) -> Generator[DataStream, None, None]:
         """Iterator for all child data streams, including nested collections.
 
-        Implements a depth-first traversal of the stream hierarchy.
+        Implements a depth-first traversal of the stream hierarchy. An errored
+        sub-collection is yielded as a node but not descended into (see
+        :meth:`__iter__`), so traversal never aborts on a partially-loaded tree.
 
         Yields:
             DataStream: All recursively yielded child data streams.
