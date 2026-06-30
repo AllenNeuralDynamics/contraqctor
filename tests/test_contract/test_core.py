@@ -502,3 +502,46 @@ class TestLoadAllChildren:
         assert collection.has_error
         with pytest.raises(ValueError, match="Data must be a list of DataStreams."):
             collection.collect_errors()[0].raise_from_error()
+
+    def test_iter_failed_collection_yields_nothing(self, temp_dir):
+        """Iterating a collection that failed to load yields nothing instead of re-raising."""
+        nonexistent_path = temp_dir / "nonexistent_folder" / "device.yml"
+        failing_collection = _FailingCollection(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        failing_collection.load()
+        assert failing_collection.has_error
+
+        # Iteration / traversal must not re-raise the stored ErrorOnLoad.
+        assert list(failing_collection) == []
+        assert list(failing_collection.iter_all()) == []
+
+        # Accessing the data directly still raises.
+        with pytest.raises(FileNotFoundError):
+            _ = failing_collection.data
+
+    def test_iter_all_survives_failed_subcollection(self, text_file, temp_dir):
+        """iter_all traverses a partial hierarchy without aborting on an errored sub-collection."""
+        working = SimpleDataStream(name="working", reader_params=SimpleParams(path=text_file))
+
+        nonexistent_path = temp_dir / "nonexistent_folder" / "device.yml"
+        failing_collection = _FailingCollection(name="failing", reader_params=SimpleParams(path=nonexistent_path))
+
+        root = DataStreamCollection(name="root", data_streams=[working, failing_collection])
+        root.load_all(strict=False)
+        assert failing_collection.has_error
+
+        # Traversal must not raise; it yields the streams that loaded plus the errored node,
+        # but nothing from inside the errored sub-collection.
+        all_streams = list(root.iter_all())
+        assert working in all_streams
+        assert failing_collection in all_streams
+
+        # Direct iteration of the parent also works.
+        children = list(root)
+        assert working in children
+        assert failing_collection in children
+
+        # Errors are still surfaced through the normal error-collection path.
+        errors = root.collect_errors()
+        assert len(errors) == 1
+        assert errors[0].data_stream == failing_collection
