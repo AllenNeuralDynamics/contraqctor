@@ -46,10 +46,22 @@ class HarpTreadmillTestSuite(HarpDeviceTypeTestSuite):
         """
         super().__init__(_harp_device)
         self._harp_device = _harp_device
-        self._data: pd.DataFrame = self._harp_device["SensorData"].data.copy()
-        self._data = self._data[self._data["MessageType"] == "EVENT"]
         self._adc_mid_tol_percent = adc_mid_tol_percent
         self._max_tick_jump = max_tick_jump
+        self._data: pd.DataFrame
+
+    @override
+    def setup_suite(self) -> None:
+        """Load the treadmill sensor event data.
+
+        Data reads are deferred out of ``__init__`` and into ``setup_suite`` (which
+        the runner calls once per suite inside its exception-handling block) so that
+        a missing/corrupt ``SensorData`` register surfaces as a failed test rather
+        than crashing suite construction. See :class:`contraqctor.qc.base.Suite`.
+        """
+        super().setup_suite()
+        data = self._harp_device["SensorData"].data.copy()
+        self._data = data[data["MessageType"] == "EVENT"]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the treadmill is within nominal values"""

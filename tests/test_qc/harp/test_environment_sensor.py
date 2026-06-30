@@ -148,17 +148,20 @@ def mock_env_sensor_device_bad_humidity():
 class TestHarpEnvironmentSensorTestSuite:
     def test_init(self, mock_env_sensor_device):
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
+        suite.setup_suite()
         assert suite.harp_device == mock_env_sensor_device
         assert "Temperature" in suite.data.columns
         assert "Humidity" in suite.data.columns
 
     def test_sampling_rate(self, mock_env_sensor_device):
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
+        suite.setup_suite()
         result = suite.test_sampling_rate()
         assert result.status == Status.PASSED
 
     def test_temperature_within_expected_limits(self, mock_env_sensor_device, mock_env_sensor_device_bad_temp):
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
+        suite.setup_suite()
         result = suite.test_temperature_within_expected_limits()
         assert result.status == Status.PASSED
         assert result.context is not None
@@ -167,11 +170,13 @@ class TestHarpEnvironmentSensorTestSuite:
         assert "mean" in result.context
 
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device_bad_temp)
+        suite.setup_suite()
         result = suite.test_temperature_within_expected_limits()
         assert result.status == Status.WARNING
 
     def test_humidity_within_expected_limits(self, mock_env_sensor_device, mock_env_sensor_device_bad_humidity):
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
+        suite.setup_suite()
         result = suite.test_humidity_within_expected_limits()
         assert result.status == Status.PASSED
         assert result.context is not None
@@ -180,5 +185,6 @@ class TestHarpEnvironmentSensorTestSuite:
         assert "mean" in result.context
 
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device_bad_humidity)
+        suite.setup_suite()
         result = suite.test_humidity_within_expected_limits()
         assert result.status == Status.WARNING

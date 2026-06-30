@@ -292,6 +292,33 @@ class Suite(abc.ABC):
     All test suites should inherit from this class and implement test methods
     that start with 'test'.
 
+    .. important::
+        **Keep ``__init__`` free of data I/O; load data in :meth:`setup_suite`
+        instead.** A suite's constructor should only store references to the data
+        streams it needs; it must not read a stream's ``.data`` (or otherwise
+        perform I/O that can fail). The :class:`Runner` only wraps the execution of
+        ``test_*`` methods — together with the lifecycle hooks
+        :meth:`setup_suite`/:meth:`teardown_suite` and :meth:`setup`/:meth:`teardown`
+        — in exception handling. Any exception raised while *constructing* a suite
+        (e.g. accessing a register whose ``.bin`` file is missing on an incomplete
+        dataset) propagates out and aborts the whole suite-assembly step before a
+        single test runs.
+
+        The rule: anything that performs I/O (or any other work that can fail)
+        belongs in a lifecycle hook, not ``__init__``. The hooks mirror
+        :mod:`unittest`:
+
+        * :meth:`setup_suite` / :meth:`teardown_suite` run **once per suite**
+          (like ``setUpClass`` / ``tearDownClass``). This is the right place to
+          load data: it happens a single time, and if it fails every test in the
+          suite is reported as an error rather than crashing assembly.
+        * :meth:`setup` / :meth:`teardown` run **once per test** (like ``setUp`` /
+          ``tearDown``).
+
+        Note these hooks run at execution time, not at construction or collection.
+        When invoking a ``test_*`` method directly (e.g. in unit tests) call
+        :meth:`setup_suite` first to populate the data it relies on.
+
     Examples:
         ```python
         from contraqctor.qc.base import Suite
@@ -684,21 +711,87 @@ class Suite(abc.ABC):
             description=description,
         )
 
+    def setup_suite(self) -> None:
+        """Run once before any test method in the suite.
+
+        Mimics :meth:`unittest.TestCase.setUpClass`. Override this to perform
+        expensive or failure-prone preparation — e.g. loading a data stream's
+        ``.data`` — a single time for the whole suite, rather than in ``__init__``
+        (which is not protected by exception handling) or in :meth:`setup` (which
+        re-runs before every test).
+
+        The :class:`Runner` invokes this inside an exception-handling block. If it
+        raises, every test in the suite is reported as an error instead of being
+        run, and :meth:`teardown_suite` is *not* called. Suite construction and
+        test discovery are unaffected.
+        """
+        pass
+
+    def teardown_suite(self) -> None:
+        """Run once after all test methods in the suite have run.
+
+        Mimics :meth:`unittest.TestCase.tearDownClass`. Only invoked if
+        :meth:`setup_suite` completed successfully.
+        """
+        pass
+
     def setup(self) -> None:
         """Run before each test method.
 
-        This method can be overridden by subclasses to implement
-        setup logic that runs before each test.
+        Mimics :meth:`unittest.TestCase.setUp`. This method can be overridden by
+        subclasses to implement setup logic that runs before each test. For work
+        that should happen only once for the whole suite, override
+        :meth:`setup_suite` instead.
         """
         pass
 
     def teardown(self) -> None:
         """Run after each test method.
 
-        This method can be overridden by subclasses to implement
-        teardown logic that runs after each test.
+        Mimics :meth:`unittest.TestCase.tearDown`. This method can be overridden
+        by subclasses to implement teardown logic that runs after each test. For
+        work that should happen only once for the whole suite, override
+        :meth:`teardown_suite` instead.
         """
         pass
+
+    def _try_setup_suite(self) -> t.Optional[t.Tuple[Exception, str]]:
+        """Run suite-level setup, capturing any exception.
+
+        Returns:
+            None if :meth:`setup_suite` succeeded, otherwise a tuple of the raised
+            exception and its formatted traceback.
+        """
+        try:
+            self.setup_suite()
+            return None
+        except Exception as e:
+            return e, traceback.format_exc()
+
+    def _suite_setup_error_result(self, test_method: ITest, exception: Exception, tb: str) -> Result:
+        """Build an ERROR result for a test that could not run due to suite-setup failure.
+
+        Args:
+            test_method: The test method that was skipped.
+            exception: The exception raised by :meth:`setup_suite`.
+            tb: The formatted traceback for the exception.
+
+        Returns:
+            Result: An ERROR result attributed to the skipped test.
+        """
+        test_name = test_method.__name__
+        return Result(
+            status=Status.ERROR,
+            result=None,
+            test_name=test_name,
+            suite_name=self.name,
+            description=getattr(test_method, "__doc__", None),
+            message=f"Error during suite setup: {str(exception)}",
+            exception=exception,
+            traceback=tb,
+            test_reference=test_method,
+            suite_reference=self,
+        )
 
     def _process_test_result(
         self, result: t.Optional[Result], test_method: ITest, test_name: str, description: t.Optional[str]
@@ -787,14 +880,26 @@ class Suite(abc.ABC):
     def run_all(self) -> t.Generator[Result, None, None]:
         """Run all test methods in the suite.
 
-        Finds all test methods and runs them in sequence.
+        Runs :meth:`setup_suite` once, then all test methods in sequence, then
+        :meth:`teardown_suite`. If :meth:`setup_suite` raises, every test is
+        yielded as an error result and no tests are run.
 
         Yields:
             Result: Result objects produced by all test methods.
         """
+        tests = list(self.get_tests())
+        setup_failure = self._try_setup_suite()
+        if setup_failure is not None:
+            exception, tb = setup_failure
+            for test in tests:
+                yield self._suite_setup_error_result(test, exception, tb)
+            return
 
-        for test in self.get_tests():
-            yield from self.run_test(test)
+        try:
+            for test in tests:
+                yield from self.run_test(test)
+        finally:
+            self.teardown_suite()
 
 
 @dataclasses.dataclass
@@ -1213,17 +1318,26 @@ class Runner:
         suite_task = progress.add_task(f"[cyan]{suite_name}".ljust(suite_name_width + 5), total=len(tests))
         suite_results = []
 
-        for test in tests:
-            test_name = test.__name__
-            test_desc = f"[cyan]{suite_name:<{suite_name_width}} • {test_name:<{test_name_width}}"
-            progress.update(suite_task, description=test_desc)
+        setup_failure = suite._try_setup_suite()
+        try:
+            for test in tests:
+                test_name = test.__name__
+                test_desc = f"[cyan]{suite_name:<{suite_name_width}} • {test_name:<{test_name_width}}"
+                progress.update(suite_task, description=test_desc)
 
-            test_results = list(suite.run_test(test))
-            suite_results.extend(test_results)
+                if setup_failure is None:
+                    test_results = list(suite.run_test(test))
+                else:
+                    exception, tb = setup_failure
+                    test_results = [suite._suite_setup_error_result(test, exception, tb)]
+                suite_results.extend(test_results)
 
-            progress.advance(total_task)
-            progress.advance(group_task)
-            progress.advance(suite_task)
+                progress.advance(total_task)
+                progress.advance(group_task)
+                progress.advance(suite_task)
+        finally:
+            if setup_failure is None:
+                suite.teardown_suite()
 
         if tests:
             self._update_suite_progress(progress, suite_task, suite_name, suite_results, suite_name_width)
@@ -1271,8 +1385,17 @@ class Runner:
         for group, tests_in_group in _TaggedTest.group_by_group(collected_tests):
             for suite, tests_in_suite in _TaggedTest.group_by_suite(tests_in_group):
                 results: t.List[Result] = []
-                for test in tests_in_suite:
-                    results.extend(suite.run_test(test.test))
+                setup_failure = suite._try_setup_suite()
+                try:
+                    for test in tests_in_suite:
+                        if setup_failure is None:
+                            results.extend(suite.run_test(test.test))
+                        else:
+                            exception, tb = setup_failure
+                            results.append(suite._suite_setup_error_result(test.test, exception, tb))
+                finally:
+                    if setup_failure is None:
+                        suite.teardown_suite()
                 for result in results:
                     collected_results.append(
                         _TaggedResult(suite=suite, group=group, result=result, test=result.test_reference)

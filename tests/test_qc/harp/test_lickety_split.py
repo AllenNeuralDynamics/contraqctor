@@ -115,17 +115,20 @@ def mock_lickety_split_device_duration_violations():
 class TestHarpLicketySplitTestSuite:
     def test_init(self, mock_lickety_split_device):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)
+        suite.setup_suite()
         assert suite.harp_device == mock_lickety_split_device
         assert "Channel0" in suite.data.columns
 
     def test_refractory_period_violations(self, mock_lickety_split_device, mock_lickety_split_device_many_violations):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)
+        suite.setup_suite()
         result = suite.test_refractory_period_violations()
         assert result.status == Status.PASSED or result.status == Status.WARNING
         assert result.message is not None
         assert result.context is not None
 
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device_many_violations)
+        suite.setup_suite()
         result = suite.test_refractory_period_violations()
         assert result.status in (Status.WARNING, Status.FAILED)
         assert result.message is not None
@@ -133,12 +136,14 @@ class TestHarpLicketySplitTestSuite:
 
     def test_minimum_lick_rate(self, mock_lickety_split_device, mock_lickety_split_device_low_rate):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)
+        suite.setup_suite()
         result = suite.test_minimum_lick_rate()
         assert result.status == Status.PASSED
         assert result.message is not None
         assert result.context is not None
 
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device_low_rate)
+        suite.setup_suite()
         result = suite.test_minimum_lick_rate()
         assert result.status == Status.FAILED
         assert result.message is not None
@@ -146,12 +151,14 @@ class TestHarpLicketySplitTestSuite:
 
     def test_lick_duration(self, mock_lickety_split_device, mock_lickety_split_device_duration_violations):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)
+        suite.setup_suite()
         result = suite.test_lick_duration()
         assert result.status == Status.PASSED or result.status == Status.WARNING
         assert result.message is not None
         assert result.context is not None
 
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device_duration_violations)
+        suite.setup_suite()
         result = suite.test_lick_duration()
         assert result.status == Status.WARNING
         assert result.message is not None
@@ -159,6 +166,7 @@ class TestHarpLicketySplitTestSuite:
 
     def test_lick_duration_no_licks(self, mock_lickety_split_device_low_rate):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device_low_rate)
+        suite.setup_suite()
         result = suite.test_lick_duration()
         assert result.status == Status.FAILED
         assert result.message is not None

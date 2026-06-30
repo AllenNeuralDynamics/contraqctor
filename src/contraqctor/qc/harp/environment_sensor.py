@@ -55,8 +55,20 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
         """
         super().__init__(harp_device)
         self.harp_device = harp_device
-        self.data: pd.DataFrame = self.harp_device["SensorData"].data.copy()
-        self.data = self.data[self.data["MessageType"] == "EVENT"]
+        self.data: pd.DataFrame
+
+    @override
+    def setup_suite(self) -> None:
+        """Load the environment sensor event data.
+
+        Data reads are deferred out of ``__init__`` and into ``setup_suite`` (which
+        the runner calls once per suite inside its exception-handling block) so that
+        a missing/corrupt ``SensorData`` register surfaces as a failed test rather
+        than crashing suite construction. See :class:`contraqctor.qc.base.Suite`.
+        """
+        super().setup_suite()
+        data = self.harp_device["SensorData"].data.copy()
+        self.data = data[data["MessageType"] == "EVENT"]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the environment sensor is within nominal values"""

@@ -74,14 +74,27 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         """
         super().__init__(harp_device)
         self.harp_device = harp_device
-        self.data: pd.DataFrame = self.harp_device["RawVoltage"].data.copy()
-        self.data = self.data[self.data["MessageType"] == "EVENT"]["RawVoltage"]
-        self.fs: float = self.harp_device["RawVoltageDispatchRate"].data.iloc[-1].values[0]
         self.quantization_ratio_thr = quantization_ratio_thr
         self.clustering_thr = clustering_thr
         self.clipping_thr = clipping_thr
         self.sudden_jumps_thr = sudden_jumps_thr
         self.notch_filter_freq = notch_filter_freq
+        self.data: pd.Series
+        self.fs: float
+
+    @override
+    def setup_suite(self) -> None:
+        """Load the raw-voltage signal and sampling frequency.
+
+        Data reads are deferred out of ``__init__`` and into ``setup_suite`` (which
+        the runner calls once per suite inside its exception-handling block) so that
+        a missing/corrupt register surfaces as a failed test rather than crashing
+        suite construction. See :class:`contraqctor.qc.base.Suite`.
+        """
+        super().setup_suite()
+        data = self.harp_device["RawVoltage"].data.copy()
+        self.data = data[data["MessageType"] == "EVENT"]["RawVoltage"]
+        self.fs = self.harp_device["RawVoltageDispatchRate"].data.iloc[-1].values[0]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the sniff detector is within nominal values"""
