@@ -61,9 +61,10 @@ class TestMapFromPaths:
             ),
         )
 
+        mux.load()
+        assert mux.has_error
         with pytest.raises(ValueError):
-            # Should throw since we have duplicate file names
-            mux.load()
+            _ = mux.data
 
     def test_include_exclude_patterns(self, temp_dir):
         """Test include and exclude patterns."""
