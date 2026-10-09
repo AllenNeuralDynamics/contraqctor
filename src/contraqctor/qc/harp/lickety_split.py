@@ -58,7 +58,6 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
     """
 
     _WHOAMI = 1400
-    _target_channel = "Channel0"
 
     @override
     def __init__(
@@ -76,6 +75,7 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         self.harp_device = harp_device
         self.lick_refractory_period = lick_refractory_period
         self.data: pd.DataFrame
+        self._target_channel: int
 
     @override
     def setup_suite(self) -> None:
@@ -88,12 +88,14 @@ class HarpLicketySplitTestSuite(HarpDeviceTypeTestSuite):
         """
         super().setup_suite()
         data = self.harp_device["LickState"].data.copy()
-        self.data = data[data["MessageType"] == "EVENT"]
+        self.data = data[data["message_type"] == "Event"]
+        # Stored as a plain int: IntFlag members are iterable, which pandas rejects in `series & flag`
+        self._target_channel = int(self.harp_device.dataset_reader.device_module.LickChannels.CHANNEL0)
 
     @staticmethod
-    def _get_distinct_from_channel(data: pd.DataFrame, channel: str):
-        """Get distinct events from a specified channel."""
-        lick_times = data[channel]
+    def _get_distinct_from_channel(data: pd.DataFrame, channel: int):
+        """Get distinct events from a specified channel bit mask."""
+        lick_times = ((data["value"] & channel) != 0).astype(int)
         mask = lick_times != lick_times.shift()
         return lick_times[mask]
 

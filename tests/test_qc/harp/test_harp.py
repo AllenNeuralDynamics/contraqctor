@@ -57,36 +57,28 @@ class MockHarpDevice:
         self.name = name
         self._registers = registers or {}
         self._create_default_registers()
-        self.device_reader = MockDeviceReader(whoami=whoami)
+        self.device_schema = MockDeviceReader(whoami=whoami).device
 
     def _create_default_registers(self):
         """Create default registers if none are provided."""
         if not self._registers:
-            whoami_df = pd.DataFrame({"WhoAmI": [1234], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds"))
+            whoami_df = pd.DataFrame({"value": [1234], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds"))
 
-            fw_high_df = pd.DataFrame(
-                {"FirmwareVersionHigh": [1], "MessageType": ["READ"]}, index=pd.Index([0.1], name="Seconds")
-            )
+            fw_high_df = pd.DataFrame({"value": [1], "message_type": ["Read"]}, index=pd.Index([0.1], name="Seconds"))
 
-            fw_low_df = pd.DataFrame(
-                {"FirmwareVersionLow": [2], "MessageType": ["READ"]}, index=pd.Index([0.2], name="Seconds")
-            )
+            fw_low_df = pd.DataFrame({"value": [2], "message_type": ["Read"]}, index=pd.Index([0.2], name="Seconds"))
 
-            core_high_df = pd.DataFrame(
-                {"CoreVersionHigh": [3], "MessageType": ["READ"]}, index=pd.Index([0.3], name="Seconds")
-            )
+            core_high_df = pd.DataFrame({"value": [3], "message_type": ["Read"]}, index=pd.Index([0.3], name="Seconds"))
 
-            core_low_df = pd.DataFrame(
-                {"CoreVersionLow": [4], "MessageType": ["READ"]}, index=pd.Index([0.4], name="Seconds")
-            )
+            core_low_df = pd.DataFrame({"value": [4], "message_type": ["Read"]}, index=pd.Index([0.4], name="Seconds"))
 
             op_control_df = pd.DataFrame(
-                {"OperationControl": [1, 2], "MessageType": ["READ", "WRITE"]},
+                {"value": [1, 2], "message_type": ["Read", "Write"]},
                 index=pd.Index([0.5, 0.6], name="Seconds"),
             )
 
             clock_config_df = pd.DataFrame(
-                {"ClockGenerator": [False], "MessageType": ["READ"]}, index=pd.Index([0.7], name="Seconds")
+                {"value": [0x0], "message_type": ["Read"]}, index=pd.Index([0.7], name="Seconds")
             )
 
             self._registers = {
@@ -121,11 +113,11 @@ def mock_harp_device():
 def mock_harp_device_commands():
     """Fixture for mock HarpDevice commands."""
     op_control_df = pd.DataFrame(
-        {"OperationControl": [1, 2], "MessageType": ["READ", "WRITE"]}, index=pd.Index([0.5, 0.6], name="Seconds")
+        {"value": [1, 2], "message_type": ["Read", "Write"]}, index=pd.Index([0.5, 0.6], name="Seconds")
     )
 
     test_reg_df = pd.DataFrame(
-        {"TestReg": [1, 2, 3], "MessageType": ["WRITE", "WRITE", "WRITE"]},
+        {"value": [1, 2, 3], "message_type": ["Write", "Write", "Write"]},
         index=pd.Index([1.0, 1.1, 1.2], name="Seconds"),
     )
 
@@ -140,15 +132,13 @@ def mock_harp_device_commands():
 @pytest.fixture
 def clock_generator_device():
     """Fixture for a clock generator device."""
-    clock_config_df = pd.DataFrame(
-        {"ClockGenerator": [True], "MessageType": ["READ"]}, index=pd.Index([0.7], name="Seconds")
-    )
+    clock_config_df = pd.DataFrame({"value": [0x2], "message_type": ["Read"]}, index=pd.Index([0.7], name="Seconds"))
 
     registers = {
         "ClockConfiguration": MockHarpRegister("ClockConfiguration", clock_config_df),
         "OperationControl": MockHarpRegister(
             "OperationControl",
-            pd.DataFrame({"OperationControl": [1], "MessageType": ["WRITE"]}, index=pd.Index([1.0], name="Seconds")),
+            pd.DataFrame({"value": [1], "message_type": ["Write"]}, index=pd.Index([1.0], name="Seconds")),
         ),
     }
 
@@ -162,11 +152,11 @@ def subordinate_devices():
 
     for i in range(3):
         clock_config_df = pd.DataFrame(
-            {"ClockGenerator": [False], "MessageType": ["READ"]}, index=pd.Index([0.7], name="Seconds")
+            {"value": [0x0], "message_type": ["Read"]}, index=pd.Index([0.7], name="Seconds")
         )
 
         op_control_df = pd.DataFrame(
-            {"OperationControl": [1], "MessageType": ["WRITE"]}, index=pd.Index([1.01 + i * 0.01], name="Seconds")
+            {"value": [1], "message_type": ["Write"]}, index=pd.Index([1.01 + i * 0.01], name="Seconds")
         )
 
         registers = {
@@ -203,10 +193,10 @@ class TestHarpDeviceTestSuite:
 
         last_read = suite._get_last_read(mock_harp_device["WhoAmI"])
         assert last_read is not None
-        assert last_read["WhoAmI"] == 1234
+        assert last_read["value"] == 1234
 
         op_control_df = pd.DataFrame(
-            {"OperationControl": [1, 2], "MessageType": ["WRITE", "WRITE"]}, index=pd.Index([0.5, 0.6], name="Seconds")
+            {"value": [1, 2], "message_type": ["Write", "Write"]}, index=pd.Index([0.5, 0.6], name="Seconds")
         )
 
         mock_harp_device._registers["NoReadReg"] = MockHarpRegister("NoReadReg", op_control_df)
@@ -236,8 +226,8 @@ class TestHarpDeviceTestSuite:
 
         whoami_df = pd.DataFrame(
             {
-                "WhoAmI": [10000],  # Outside valid range
-                "MessageType": ["READ"],
+                "value": [10000],  # Outside valid range
+                "message_type": ["Read"],
             },
             index=pd.Index([0.0], name="Seconds"),
         )
@@ -253,7 +243,7 @@ class TestHarpDeviceTestSuite:
         result = suite.test_match_whoami_to_yml()
         assert result.status == Status.PASSED
 
-        mock_harp_device.device_reader.device.whoAmI = 5678
+        mock_harp_device.device_schema.whoAmI = 5678
         result = suite.test_match_whoami_to_yml()
         assert result.status == Status.FAILED
 
@@ -265,7 +255,7 @@ class TestHarpDeviceTestSuite:
         assert result.status == Status.PASSED
 
         no_read_df = pd.DataFrame(
-            {"NoReadReg": [1], "MessageType": ["WRITE"]},
+            {"value": [1], "message_type": ["Write"]},
             index=pd.Index([1.0], name="Seconds"),
         )
         suite.harp_device._registers["NoReadReg"] = MockHarpRegister("NoReadReg", no_read_df)
@@ -278,7 +268,7 @@ class TestHarpDeviceTestSuite:
         suite = HarpDeviceTestSuite(mock_harp_device, mock_harp_device_commands)
 
         test_reg_df = pd.DataFrame(
-            {"TestReg": [1, 2, 3], "MessageType": ["WRITE", "WRITE", "WRITE"]},
+            {"value": [1, 2, 3], "message_type": ["Write", "Write", "Write"]},
             index=pd.Index([1.1, 1.2, 1.3], name="Seconds"),
         )
         mock_harp_device._registers["TestReg"] = MockHarpRegister("TestReg", test_reg_df)
@@ -288,8 +278,8 @@ class TestHarpDeviceTestSuite:
 
         test_reg_df = pd.DataFrame(
             {
-                "TestReg": [1],  # Only one response
-                "MessageType": ["WRITE"],
+                "value": [1],  # Only one response
+                "message_type": ["Write"],
             },
             index=pd.Index([1.1], name="Seconds"),
         )
@@ -311,7 +301,7 @@ class TestHarpDeviceTestSuite:
         assert result.status == Status.PASSED
 
         non_monotonic_df = pd.DataFrame(
-            {"NonMonotonic": [1, 2, 3], "MessageType": ["READ", "READ", "READ"]},
+            {"value": [1, 2, 3], "message_type": ["Read", "Read", "Read"]},
             index=pd.Index([0.3, 0.2, 0.4], name="Seconds"),
         )  # Non-monotonic index
         mock_harp_device._registers["NonMonotonic"] = MockHarpRegister("NonMonotonic", non_monotonic_df)
@@ -337,15 +327,11 @@ class TestHarpDeviceTestSuite:
 
     def test_fw_version_matches_reader(self, mock_harp_device):
         """Test test_fw_version_matches_reader method."""
-        mock_harp_device.device_reader.device.firmwareVersion = "1.2.0"
+        mock_harp_device.device_schema.firmwareVersion = "1.2.0"
 
-        fw_high_df = pd.DataFrame(
-            {"FirmwareVersionHigh": [1], "MessageType": ["READ"]}, index=pd.Index([0.1], name="Seconds")
-        )
+        fw_high_df = pd.DataFrame({"value": [1], "message_type": ["Read"]}, index=pd.Index([0.1], name="Seconds"))
 
-        fw_low_df = pd.DataFrame(
-            {"FirmwareVersionLow": [2], "MessageType": ["READ"]}, index=pd.Index([0.2], name="Seconds")
-        )
+        fw_low_df = pd.DataFrame({"value": [2], "message_type": ["Read"]}, index=pd.Index([0.2], name="Seconds"))
 
         mock_harp_device._registers["FirmwareVersionHigh"] = MockHarpRegister("FirmwareVersionHigh", fw_high_df)
         mock_harp_device._registers["FirmwareVersionLow"] = MockHarpRegister("FirmwareVersionLow", fw_low_df)
@@ -355,27 +341,23 @@ class TestHarpDeviceTestSuite:
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.PASSED
 
-        mock_harp_device.device_reader.device.firmwareVersion = "1.3.0"
+        mock_harp_device.device_schema.firmwareVersion = "1.3.0"
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.WARNING
 
-        mock_harp_device.device_reader.device.firmwareVersion = "1.1.0"
+        mock_harp_device.device_schema.firmwareVersion = "1.1.0"
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.WARNING
 
-        mock_harp_device.device_reader.device.firmwareVersion = "invalid"
+        mock_harp_device.device_schema.firmwareVersion = "invalid"
         result = suite.test_fw_version_matches_reader()
         assert result.status == Status.FAILED
 
     def test_core_version(self, mock_harp_device):
         """Test test_core_version method."""
-        core_high_df = pd.DataFrame(
-            {"CoreVersionHigh": [2], "MessageType": ["READ"]}, index=pd.Index([0.3], name="Seconds")
-        )
+        core_high_df = pd.DataFrame({"value": [2], "message_type": ["Read"]}, index=pd.Index([0.3], name="Seconds"))
 
-        core_low_df = pd.DataFrame(
-            {"CoreVersionLow": [0], "MessageType": ["READ"]}, index=pd.Index([0.4], name="Seconds")
-        )
+        core_low_df = pd.DataFrame({"value": [0], "message_type": ["Read"]}, index=pd.Index([0.4], name="Seconds"))
 
         mock_harp_device._registers["CoreVersionHigh"] = MockHarpRegister("CoreVersionHigh", core_high_df)
         mock_harp_device._registers["CoreVersionLow"] = MockHarpRegister("CoreVersionLow", core_low_df)
@@ -402,6 +384,28 @@ class TestHarpDeviceTestSuite:
         result = suite.test_core_version()
         assert result.status == Status.SKIPPED
 
+    @pytest.mark.parametrize(
+        "test_name, register",
+        [
+            ("test_fw_version_matches_reader", "FirmwareVersionLow"),
+            ("test_core_version", "CoreVersionHigh"),
+        ],
+    )
+    def test_version_without_read_message_fails(self, mock_harp_device, test_name, register):
+        """A version register with no READ message fails the test instead of raising."""
+        no_read_df = pd.DataFrame({"value": [1], "message_type": ["Write"]}, index=pd.Index([0.1], name="Seconds"))
+        mock_harp_device._registers[register] = MockHarpRegister(register, no_read_df)
+
+        suite = HarpDeviceTestSuite(mock_harp_device, min_core_version="1.0.0")
+        result = getattr(suite, test_name)()
+        assert result.status == Status.FAILED
+
+    def test_fw_version_missing_from_schema_fails(self, mock_harp_device):
+        """A schema without a firmwareVersion fails the test instead of raising."""
+        mock_harp_device.device_schema.firmwareVersion = None
+        result = HarpDeviceTestSuite(mock_harp_device).test_fw_version_matches_reader()
+        assert result.status == Status.FAILED
+
 
 class TestHarpHubTestSuite:
     """Tests for the HarpHubTestSuite class."""
@@ -422,7 +426,7 @@ class TestHarpHubTestSuite:
         assert result.status == Status.PASSED
 
         clock_config_df = pd.DataFrame(
-            {"ClockGenerator": [False], "MessageType": ["READ"]}, index=pd.Index([0.7], name="Seconds")
+            {"value": [0x0], "message_type": ["Read"]}, index=pd.Index([0.7], name="Seconds")
         )
 
         clock_generator_device._registers["ClockConfiguration"] = MockHarpRegister(
@@ -443,7 +447,7 @@ class TestHarpHubTestSuite:
         assert all(r.status == Status.PASSED for r in results)
 
         clock_config_df = pd.DataFrame(
-            {"ClockGenerator": [True], "MessageType": ["READ"]}, index=pd.Index([0.7], name="Seconds")
+            {"value": [0x2], "message_type": ["Read"]}, index=pd.Index([0.7], name="Seconds")
         )
 
         subordinate_devices[0]._registers["ClockConfiguration"] = MockHarpRegister(
@@ -469,8 +473,8 @@ class TestHarpHubTestSuite:
 
         op_control_df = pd.DataFrame(
             {
-                "OperationControl": [1],
-                "MessageType": ["READ"],  # No WRITE
+                "value": [1],
+                "message_type": ["Read"],  # No WRITE
             },
             index=pd.Index([0.5], name="Seconds"),
         )
@@ -483,7 +487,7 @@ class TestHarpHubTestSuite:
         """Test test_is_read_dump_synchronized method."""
         for i, device in enumerate(subordinate_devices):
             op_control_df = pd.DataFrame(
-                {"OperationControl": [1], "MessageType": ["WRITE"]}, index=pd.Index([1.0 + i * 0.01], name="Seconds")
+                {"value": [1], "message_type": ["Write"]}, index=pd.Index([1.0 + i * 0.01], name="Seconds")
             )
 
             device._registers["OperationControl"] = MockHarpRegister("OperationControl", op_control_df)
@@ -493,9 +497,7 @@ class TestHarpHubTestSuite:
         results = list(suite.test_is_read_dump_synchronized())
         assert all(r.status == Status.PASSED for r in results)
 
-        op_control_df = pd.DataFrame(
-            {"OperationControl": [1], "MessageType": ["WRITE"]}, index=pd.Index([1.1], name="Seconds")
-        )
+        op_control_df = pd.DataFrame({"value": [1], "message_type": ["Write"]}, index=pd.Index([1.1], name="Seconds"))
 
         subordinate_devices[0]._registers["OperationControl"] = MockHarpRegister("OperationControl", op_control_df)
 

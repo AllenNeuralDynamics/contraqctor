@@ -1,3 +1,4 @@
+import enum
 from unittest.mock import Mock
 
 import numpy as np
@@ -34,24 +35,24 @@ class MockHarpDevice:
         self.name = name
         self._registers = registers or {}
         self._create_default_registers()
-        self.device_reader = Mock(
-            device=Mock(
-                whoAmI=self.whoami,
-                firmwareVersion="1.2.3",
-                name=name,
-                registers={"WhoAmI": {}, "LickState": {}, "TimestampSeconds": {}},
-            )
+        self.device_schema = Mock(
+            whoAmI=self.whoami,
+            firmwareVersion="1.2.3",
+            name=name,
+            registers={"WhoAmI": {}, "LickState": {}, "TimestampSeconds": {}},
         )
+        lick_channels = enum.IntFlag("LickChannels", {"CHANNEL0": 0x1, "CHANNEL1": 0x2})
+        self.dataset_reader = Mock(device_module=Mock(LickChannels=lick_channels))
 
     def _create_default_registers(self):
         if not self._registers:
             time_index = np.arange(0, 100, 0.1)
-            lick_state = np.zeros(len(time_index))
+            lick_state = np.zeros(len(time_index), dtype=np.uint8)
             np.random.seed(0)
             lick_times = np.random.choice(np.arange(10, 990), size=100, replace=False)
             lick_state[lick_times] = 1
             lick_df = pd.DataFrame(
-                {"Channel0": lick_state, "MessageType": ["EVENT"] * len(time_index)},
+                {"value": lick_state, "message_type": ["Event"] * len(time_index)},
                 index=pd.Index(time_index, name="Seconds"),
             )
             timestamp_df = pd.DataFrame(index=pd.Index(time_index, name="Seconds"))
@@ -80,10 +81,10 @@ def mock_lickety_split_device_many_violations():
     device = MockHarpDevice(whoami=1400)
     time_index = np.linspace(0, 1, 1000)
     lick_df = pd.DataFrame(index=pd.Index(time_index, name="Seconds"))
-    lick_signal = np.zeros(len(time_index))
+    lick_signal = np.zeros(len(time_index), dtype=np.uint8)
     lick_signal[::2] = 1
-    lick_df["Channel0"] = lick_signal
-    lick_df["MessageType"] = ["EVENT"] * len(time_index)
+    lick_df["value"] = lick_signal
+    lick_df["message_type"] = ["Event"] * len(time_index)
     device._registers["LickState"] = MockHarpRegister("LickState", lick_df)
     return device
 
@@ -94,7 +95,7 @@ def mock_lickety_split_device_low_rate():
     lick_data = device._registers["LickState"].data
     lick_df = lick_data.copy() if lick_data is not None else pd.DataFrame()
     if not lick_df.empty:
-        lick_df["Channel0"] = 0  # No licks
+        lick_df["value"] = 0  # No licks
     device._registers["LickState"] = MockHarpRegister("LickState", lick_df)
     return device
 
@@ -104,10 +105,10 @@ def mock_lickety_split_device_duration_violations():
     device = MockHarpDevice(whoami=1400)
     lick_time = np.linspace(0, 1, 1000)
     lick_df = pd.DataFrame(index=pd.Index(lick_time, name="Seconds"))
-    lick_signal = np.zeros(len(lick_time))
+    lick_signal = np.zeros(len(lick_time), dtype=np.uint8)
     lick_signal[::2] = 1
-    lick_df["Channel0"] = lick_signal
-    lick_df["MessageType"] = ["EVENT"] * len(lick_time)
+    lick_df["value"] = lick_signal
+    lick_df["message_type"] = ["Event"] * len(lick_time)
     device._registers["LickState"] = MockHarpRegister("LickState", lick_df)
     return device
 
@@ -117,7 +118,7 @@ class TestHarpLicketySplitTestSuite:
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)
         suite.setup_suite()
         assert suite.harp_device == mock_lickety_split_device
-        assert "Channel0" in suite.data.columns
+        assert "value" in suite.data.columns
 
     def test_refractory_period_violations(self, mock_lickety_split_device, mock_lickety_split_device_many_violations):
         suite = HarpLicketySplitTestSuite(mock_lickety_split_device)

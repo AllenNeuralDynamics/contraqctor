@@ -93,8 +93,8 @@ class HarpSniffDetectorTestSuite(HarpDeviceTypeTestSuite):
         """
         super().setup_suite()
         data = self.harp_device["RawVoltage"].data.copy()
-        self.data = data[data["MessageType"] == "EVENT"]["RawVoltage"]
-        self.fs = self.harp_device["RawVoltageDispatchRate"].data.iloc[-1].values[0]
+        self.data = data[data["message_type"] == "Event"]["value"]
+        self.fs = self.harp_device["RawVoltageDispatchRate"].data["value"].iloc[-1]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the sniff detector is within nominal values"""
