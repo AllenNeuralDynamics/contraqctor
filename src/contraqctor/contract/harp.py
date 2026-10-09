@@ -90,6 +90,17 @@ class HarpRegister(DataStream[pd.DataFrame, HarpRegisterParams]):
         c._register_class = register_class
 
         def _reader(params: HarpRegisterParams) -> pd.DataFrame:
+            """Read the register data from the dataset.
+
+            Args:
+                params: Parameters for register decoding.
+
+            Returns:
+                pd.DataFrame: DataFrame containing the register data.
+
+            Raises:
+                FileNotFoundError: If the register has no data file in the dataset.
+            """
             # harp.data returns an empty frame for a register with no file; we raise
             # instead so that a missing register is reported as a load error.
             if register_class.address not in dataset_reader.paths:
