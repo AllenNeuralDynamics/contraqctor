@@ -401,7 +401,7 @@ if __name__ == "__main__":
         child = child.parent
     print(path)
 
-    print(my_dataset.at("Behavior").at("HarpBehavior").device_reader)
+    print(my_dataset.at("Behavior").at("HarpBehavior").dataset_reader)
 
     with open("my_dataset.md", "w", encoding="UTF-8") as f:
         f.write(print_data_stream_tree(my_dataset))

@@ -3,6 +3,7 @@ import typing as t
 
 import pandas as pd
 import semver
+from harp.device.core import ClockConfigurationFlags
 
 from ...contract.harp import HarpDevice, HarpRegister
 from ..base import Suite
@@ -67,24 +68,24 @@ class HarpDeviceTestSuite(Suite):
         Returns:
             int: The WhoAmI value of the device.
         """
-        return device["WhoAmI"].data.WhoAmI.iloc[-1]
+        return device["WhoAmI"].data["value"].iloc[-1]
 
     @staticmethod
-    def _get_last_read(harp_register: HarpRegister) -> t.Optional[pd.DataFrame]:
+    def _get_last_read(harp_register: HarpRegister) -> t.Optional[pd.Series]:
         """Get the last READ message from a Harp register.
 
         Args:
             harp_register: The HarpRegister data stream.
 
         Returns:
-            Optional[pd.DataFrame]: The last READ message, or None if no READ messages exist.
+            Optional[pd.Series]: The last READ message, or None if no READ messages exist.
 
         Raises:
             ValueError: If the register does not have loaded data.
         """
         if not harp_register.has_data:
             raise ValueError(f"Harp register: <{harp_register.name}> does not have loaded data")
-        reads = harp_register.data[harp_register.data["MessageType"] == "READ"]
+        reads = harp_register.data[harp_register.data["message_type"] == "Read"]
         return reads.iloc[-1] if len(reads) > 0 else None
 
     # Tests
@@ -103,7 +104,7 @@ class HarpDeviceTestSuite(Suite):
 
     def test_match_whoami_to_yml(self):
         """Check if the WhoAmI value matches the device's WhoAmI"""
-        if self._get_whoami(self.harp_device) == self.harp_device.device_reader.device.whoAmI:
+        if self._get_whoami(self.harp_device) == self.harp_device.device_schema.whoAmI:
             return self.pass_test(True, "WhoAmI value matches the device's WhoAmI")
         else:
             return self.fail_test(False, "WhoAmI value does not match the device's WhoAmI")
@@ -114,7 +115,7 @@ class HarpDeviceTestSuite(Suite):
         """
         ds = [stream for stream in self.harp_device]
 
-        def _try_get_last_read(r: HarpRegister) -> t.Optional[pd.DataFrame]:
+        def _try_get_last_read(r: HarpRegister) -> t.Optional[pd.Series]:
             """We will assume that all data is loaded. If not we will return None
             Instead of raising an error, so that we can continue checking other registers."""
             try:
@@ -136,16 +137,16 @@ class HarpDeviceTestSuite(Suite):
             return self.skip_test("No harp device commands provided")
 
         op_ctr: pd.DataFrame = self.harp_device_commands["OperationControl"].data
-        op_ctr = op_ctr[op_ctr["MessageType"] == "WRITE"]
+        op_ctr = op_ctr[op_ctr["message_type"] == "Write"]
         op_ctr = op_ctr.index.values[0]
 
         reg_error = []
         for req_reg in self.harp_device_commands:
             if req_reg.has_data:  # Only data streams with data can be checked
                 # Only "Writes" will be considered, but in theory we could also check "Reads"
-                requests: pd.DataFrame = req_reg.data[req_reg.data["MessageType"] == "WRITE"]
+                requests: pd.DataFrame = req_reg.data[req_reg.data["message_type"] == "Write"]
                 rep_reg = self.harp_device[req_reg.name]
-                replies: pd.DataFrame = rep_reg.data[rep_reg.data["MessageType"] == "WRITE"]
+                replies: pd.DataFrame = rep_reg.data[rep_reg.data["message_type"] == "Write"]
 
                 # All responses must, by definition, be timestamped AFTER the request
                 if len(requests) > 0:
@@ -184,7 +185,7 @@ class HarpDeviceTestSuite(Suite):
         for reg in self.harp_device:
             if not reg.has_data:
                 continue
-            for message_type, reg_type_data in reg.data.groupby("MessageType", observed=True):
+            for message_type, reg_type_data in reg.data.groupby("message_type", observed=True):
                 if not reg_type_data.index.is_monotonic_increasing:
                     reg_errors.append(
                         {
@@ -205,16 +206,34 @@ class HarpDeviceTestSuite(Suite):
                 context={"register_errors": reg_errors},
             )
 
+    def _get_version(self, high: str, low: str) -> t.Optional[str]:
+        """Get a ``major.minor`` version string from the last READ of a pair of registers.
+
+        Args:
+            high: Name of the register holding the major version.
+            low: Name of the register holding the minor version.
+
+        Returns:
+            Optional[str]: The version string, or None if either register has no READ message.
+        """
+        high_read = self._get_last_read(self.harp_device[high])
+        low_read = self._get_last_read(self.harp_device[low])
+        if high_read is None or low_read is None:
+            return None
+        return f"{high_read['value']}.{low_read['value']}"
+
     @staticmethod
-    def _try_parse_semver(version: str) -> t.Optional[semver.Version]:
+    def _try_parse_semver(version: t.Optional[str]) -> t.Optional[semver.Version]:
         """Try to parse a semantic version string.
 
         Args:
             version: The version string to parse.
 
         Returns:
-            Optional[semver.Version]: The parsed Version object, or None if parsing fails.
+            Optional[semver.Version]: The parsed Version object, or None if parsing fails or no version is given.
         """
+        if version is None:
+            return None
         if len(version.split(".")) < 3:
             version += ".0"
         try:
@@ -224,12 +243,8 @@ class HarpDeviceTestSuite(Suite):
 
     def test_fw_version_matches_reader(self):
         """Check if the firmware version of the device matches the one in the reader"""
-        reader = self.harp_device.device_reader
-
-        fw = self._try_parse_semver(reader.device.firmwareVersion)
-        device_fw = self._try_parse_semver(
-            f"{self._get_last_read(self.harp_device['FirmwareVersionHigh']).iloc[0]}.{self._get_last_read(self.harp_device['FirmwareVersionLow']).iloc[0]}"
-        )
+        fw = self._try_parse_semver(self.harp_device.device_schema.firmwareVersion)
+        device_fw = self._try_parse_semver(self._get_version("FirmwareVersionHigh", "FirmwareVersionLow"))
 
         if (fw is None) or (device_fw is None):
             return self.fail_test(
@@ -247,9 +262,7 @@ class HarpDeviceTestSuite(Suite):
     def test_core_version(self):
         """Check if the core version of the device matches the one provided"""
         core = self._try_parse_semver(self.min_core_version) if self.min_core_version else None
-        device_core = self._try_parse_semver(
-            f"{self._get_last_read(self.harp_device['CoreVersionHigh']).iloc[0]}.{self._get_last_read(self.harp_device['CoreVersionLow']).iloc[0]}"
-        )
+        device_core = self._try_parse_semver(self._get_version("CoreVersionHigh", "CoreVersionLow"))
 
         if core is None:
             return self.skip_test("Core version not specified, skipping test.")
@@ -319,8 +332,8 @@ class HarpHubTestSuite(Suite):
         """Checks if the clock generator device is actually a clock generator"""
         if "ClockConfiguration" not in [x.name for x in self.clock_generator_device]:
             return self.fail_test(None, "ClockConfiguration data stream is not present")
-        clock_reg = self.clock_generator_device["ClockConfiguration"].data.iloc[-1]
-        if clock_reg["ClockGenerator"]:
+        clock_reg = self.clock_generator_device["ClockConfiguration"].data["value"].iloc[-1]
+        if clock_reg & ClockConfigurationFlags.CLOCK_GENERATOR:
             return self.pass_test(True, "Clock generator is a clock generator")
         else:
             return self.fail_test(False, "Clock generator is not a clock generator")
@@ -330,7 +343,7 @@ class HarpHubTestSuite(Suite):
         for device in self.devices:
             if "ClockConfiguration" not in [x.name for x in device]:
                 yield self.fail_test(None, f"ClockConfiguration data stream is not present in {device.name}")
-            elif device["ClockConfiguration"].data.iloc[-1]["ClockGenerator"]:
+            elif device["ClockConfiguration"].data["value"].iloc[-1] & ClockConfigurationFlags.CLOCK_GENERATOR:
                 yield self.fail_test(False, f"Device {device.name} is not subordinate to the clock generator")
             else:
                 yield self.pass_test(True, f"Device {device.name} is subordinate to the clock generator")
@@ -347,7 +360,7 @@ class HarpHubTestSuite(Suite):
         """
         try:
             read_dump: pd.DataFrame = device["OperationControl"].data.copy()
-            read_dump = read_dump[read_dump["MessageType"] == "WRITE"]
+            read_dump = read_dump[read_dump["message_type"] == "Write"]
         except KeyError:
             return None
         if len(read_dump) == 0:
@@ -405,7 +418,7 @@ class HarpDeviceTypeTestSuite(Suite, abc.ABC):
     def test_whoami(self):
         """Check if the WhoAmI value is correct"""
         try:
-            who_am_i = self.harp_device["WhoAmI"].data["WhoAmI"].iloc[-1]
+            who_am_i = self.harp_device["WhoAmI"].data["value"].iloc[-1]
         except KeyError:
             return self.fail_test(None, "WhoAmI data stream is not present")
         if who_am_i != self.whoami:

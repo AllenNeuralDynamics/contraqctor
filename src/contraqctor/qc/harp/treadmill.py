@@ -61,13 +61,13 @@ class HarpTreadmillTestSuite(HarpDeviceTypeTestSuite):
         """
         super().setup_suite()
         data = self._harp_device["SensorData"].data.copy()
-        self._data = data[data["MessageType"] == "EVENT"]
+        self._data = data[data["message_type"] == "Event"]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the treadmill is within nominal values"""
         period = self._data.index.diff().dropna()
         mean_period = np.mean(period)
-        fs: float = self._harp_device["SensorDataDispatchRate"].data.iloc[-1].values[0]
+        fs: float = self._harp_device["SensorDataDispatchRate"].data["value"].iloc[-1]
         if fs == 0:
             return self.fail_test(0, "Sampling rate is zero")
 
@@ -82,7 +82,7 @@ class HarpTreadmillTestSuite(HarpDeviceTypeTestSuite):
         """Tests the quality of the treadmill signal by calculating total distance and sudden jumps."""
         metrics = {}
 
-        d = self._data["Encoder"].diff().dropna()
+        d = self._data["encoder"].diff().dropna()
         # apply two's complement wrap for signed 32-bit
         mask = 0xFFFFFFFF
         d = d.astype(np.int64) & mask  # force 32-bit space
@@ -109,7 +109,7 @@ class HarpTreadmillTestSuite(HarpDeviceTypeTestSuite):
         SOFT_MIN = MIN + (MAX - MIN) * 0.2  # 20% above the minimum
         SOFT_MAX = MAX - (MAX - MIN) * 0.2  # 20% below the maximum
 
-        torque = self._data["Torque"].copy()
+        torque = self._data["torque"].copy()
         metrics = {}
         metrics["min"] = torque.min()
         metrics["max"] = torque.max()
@@ -139,8 +139,8 @@ class HarpTreadmillTestSuite(HarpDeviceTypeTestSuite):
     def test_torque_limit_tripwire(self):
         """Tests if the torque limit tripwire was triggered."""
         tripwire = self._harp_device["TorqueLimitState"].read()
-        tripwire = tripwire[tripwire["MessageType"] == "EVENT"]
-        trips = tripwire["TorqueLimitState"] > 0
+        tripwire = tripwire[tripwire["message_type"] == "Event"]
+        trips = tripwire["value"] > 0
         if n := trips.sum() == 0:
             return self.pass_test(n, "Torque limit tripwire was never triggered during the session")
         return self.fail_test(n, f"Torque limit tripwire was triggered {n} times during the session")

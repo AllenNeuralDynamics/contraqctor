@@ -544,6 +544,18 @@ class DataStreamCollectionBase(
         return self._at
 
     @override
+    def __getitem__(self, name: str) -> TDataStream:
+        """Get a child data stream by name using dictionary-like syntax.
+
+        Args:
+            name: Name of the child data stream to retrieve.
+
+        Returns:
+            TDataStream: The child data stream with the given name.
+        """
+        return self.at(name)
+
+    @override
     def load(self) -> Self:
         """Load data for this collection.
 

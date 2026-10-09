@@ -34,19 +34,17 @@ class MockHarpDevice:
         self.name = name
         self._registers = registers or {}
         self._create_default_registers()
-        self.device_reader = Mock(
-            device=Mock(
-                whoAmI=self.whoami,
-                firmwareVersion="1.2.3",
-                name=name,
-                registers={"WhoAmI": {}, "SensorData": {}, "SensorDataDispatchRate": {}, "TorqueLimitState": {}},
-            )
+        self.device_schema = Mock(
+            whoAmI=self.whoami,
+            firmwareVersion="1.2.3",
+            name=name,
+            registers={"WhoAmI": {}, "SensorData": {}, "SensorDataDispatchRate": {}, "TorqueLimitState": {}},
         )
 
     def _create_default_registers(self):
         if not self._registers:
             whoami_df = pd.DataFrame(
-                {"WhoAmI": [self.whoami], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds")
+                {"value": [self.whoami], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds")
             )
             time_index = np.linspace(0, 10, 1000)
             np.random.seed(0)
@@ -54,17 +52,17 @@ class MockHarpDevice:
             torque = np.random.uniform(1000, 3000, len(time_index))
             sensor_df = pd.DataFrame(
                 {
-                    "Encoder": encoder,
-                    "Torque": torque,
-                    "MessageType": ["EVENT"] * len(time_index),
+                    "encoder": encoder,
+                    "torque": torque,
+                    "message_type": ["Event"] * len(time_index),
                 },
                 index=pd.Index(time_index, name="Seconds"),
             )
             dispatch_rate_df = pd.DataFrame(
-                {"SensorDataDispatchRate": [100], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds")
+                {"value": [100], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds")
             )
             torque_limit_df = pd.DataFrame(
-                {"TorqueLimitState": [0] * len(time_index), "MessageType": ["EVENT"] * len(time_index)},
+                {"value": [0] * len(time_index), "message_type": ["Event"] * len(time_index)},
                 index=pd.Index(time_index, name="Seconds"),
             )
             self._registers = {
@@ -96,7 +94,7 @@ def mock_treadmill_device_bad_rate():
     encoder = np.cumsum(np.random.randint(1, 5, len(time_index)))
     torque = np.random.uniform(100, 2000, len(time_index))
     sensor_df = pd.DataFrame(
-        {"Encoder": encoder, "Torque": torque, "MessageType": ["EVENT"] * len(time_index)},
+        {"encoder": encoder, "torque": torque, "message_type": ["Event"] * len(time_index)},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["SensorData"] = MockHarpRegister("SensorData", sensor_df)
@@ -110,7 +108,7 @@ def mock_treadmill_device_zero_ticks():
     encoder = np.zeros(len(time_index))
     torque = np.random.uniform(100, 2000, len(time_index))
     sensor_df = pd.DataFrame(
-        {"Encoder": encoder, "Torque": torque, "MessageType": ["EVENT"] * len(time_index)},
+        {"encoder": encoder, "torque": torque, "message_type": ["Event"] * len(time_index)},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["SensorData"] = MockHarpRegister("SensorData", sensor_df)
@@ -129,7 +127,7 @@ def mock_treadmill_device_bad_torque():
         ]
     )
     sensor_df = pd.DataFrame(
-        {"Encoder": encoder, "Torque": torque, "MessageType": ["EVENT"] * 1000},
+        {"encoder": encoder, "torque": torque, "message_type": ["Event"] * 1000},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["SensorData"] = MockHarpRegister("SensorData", sensor_df)
@@ -143,7 +141,7 @@ def mock_treadmill_device_tripwire():
     torque_limit = np.zeros(len(time_index))
     torque_limit[100] = 1  # simulate tripwire triggered
     torque_limit_df = pd.DataFrame(
-        {"TorqueLimitState": torque_limit, "MessageType": ["EVENT"] * len(time_index)},
+        {"value": torque_limit, "message_type": ["Event"] * len(time_index)},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["TorqueLimitState"] = MockHarpRegister("TorqueLimitState", torque_limit_df)
@@ -155,8 +153,8 @@ class TestHarpTreadmillTestSuite:
         suite = HarpTreadmillTestSuite(mock_treadmill_device)
         suite.setup_suite()
         assert suite.harp_device == mock_treadmill_device
-        assert "Encoder" in suite._data.columns
-        assert "Torque" in suite._data.columns
+        assert "encoder" in suite._data.columns
+        assert "torque" in suite._data.columns
 
     def test_sampling_rate(self, mock_treadmill_device, mock_treadmill_device_bad_rate):
         suite = HarpTreadmillTestSuite(mock_treadmill_device)

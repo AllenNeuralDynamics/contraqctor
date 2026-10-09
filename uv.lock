@@ -26,18 +26,18 @@ wheels = [
 
 [[package]]
 name = "aind-behavior-services"
-version = "0.13.7"
+version = "0.13.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aind-behavior-curriculum" },
     { name = "gitpython" },
-    { name = "harp-python" },
+    { name = "numpy" },
     { name = "pydantic" },
     { name = "semver" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/69/6d/540d7221485fb04ae4f04f99a57c930035c39ecb2b899937828aae81936f/aind_behavior_services-0.13.7.tar.gz", hash = "sha256:2ef5a28ea5918c059cf4444e105ce00068d5285193eb63bf7f87b89db2d1b5d2", size = 29573, upload-time = "2026-04-18T22:20:04.267Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/80/89aee15d031c9efaebab63160d6eab20aaf42fbe99eeb05276c4e8256977/aind_behavior_services-0.13.9.tar.gz", hash = "sha256:510da87b25de80449234db1d4bd2bf397e721d1ad4c9072882789fd64b58e490", size = 30097, upload-time = "2026-10-09T17:42:22.309Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/bf/423d28364d564008a33d40d7aad1fbbed5e028b5bda39ed5cafc41651d7e/aind_behavior_services-0.13.7-py3-none-any.whl", hash = "sha256:ab57927ce283cb07a47c4b02eecee8038421f8292c5efbeeaaf907fd6a69eb08", size = 39614, upload-time = "2026-04-18T22:20:02.941Z" },
+    { url = "https://files.pythonhosted.org/packages/58/52/ee14809af59accbc9ab0084067d3b220c2fdbc10b1e36c274309275437ec/aind_behavior_services-0.13.9-py3-none-any.whl", hash = "sha256:dc0776b13338f5688147721faa983aef3f08694def8cc3592f28954b818316d5", size = 39764, upload-time = "2026-10-09T17:42:21.134Z" },
 ]
 
 [[package]]
@@ -296,7 +296,7 @@ version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "aind-behavior-services" },
-    { name = "harp-python" },
+    { name = "harp-data" },
     { name = "jinja2" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -329,8 +329,8 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aind-behavior-services" },
-    { name = "harp-python" },
+    { name = "aind-behavior-services", specifier = ">=0.13.9" },
+    { name = "harp-data", specifier = ">=0.5.0" },
     { name = "jinja2" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -569,16 +569,45 @@ wheels = [
 ]
 
 [[package]]
-name = "harp-python"
-version = "0.4.1"
+name = "harp-data"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "harp-device" },
+    { name = "harp-protocol" },
+    { name = "numpy" },
     { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/02/ed591b7f515b365d0acca9f4e37fa020db3bc8f083b8491fd1fbe5cd87f3/harp_data-0.5.0.tar.gz", hash = "sha256:b2077b1db720b6f3a6a64dab505a220dee3325043160d55048668f43cd624901", size = 13570, upload-time = "2026-08-25T23:01:40.012Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/fe/fc5ea9da435b026c89f05a7fb381a26d4049a85509e982add63256da9505/harp_data-0.5.0-py3-none-any.whl", hash = "sha256:e564c5cabd8a21cf9cb3cdcda58e0f271c25f3f7e4859e2a617a28c6f6296bac", size = 13270, upload-time = "2026-08-25T23:01:34.686Z" },
+]
+
+[[package]]
+name = "harp-device"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "harp-protocol" },
+    { name = "pydantic" },
     { name = "pydantic-yaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/78/c894fe30960d7df9737bc0e15390b45844c857192787ea3f02666161da86/harp_python-0.4.1.tar.gz", hash = "sha256:232c38c3dbcc714ff0d7bb18423f5c4a843062442f4b27f77571c7071e606eff", size = 15487, upload-time = "2025-04-02T16:20:50.768Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/18/f48f8b553b09ce119e5819b075f1bce538797e333154a20206c557484cdb/harp_device-0.5.0.tar.gz", hash = "sha256:fbeed57addb265e6e040c37b2438c1b8e6e1b2b8524f168f87f8aca98ea42aec", size = 26086, upload-time = "2026-08-25T23:01:40.886Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/58/8a5d1c27b50544957c51bf2a2d5342bedd4ce5cf891bc2e412ce43dd4640/harp_python-0.4.1-py3-none-any.whl", hash = "sha256:0a91396ec19b76a71019b7ed2d9d550aa5c22148095759f706c70b8d808f69dd", size = 12643, upload-time = "2025-04-02T16:20:48.992Z" },
+    { url = "https://files.pythonhosted.org/packages/03/cd/2303fe6cd78a23fa274f6ffc1943099f450509a89dfd88e94afcbee4db83/harp_device-0.5.0-py3-none-any.whl", hash = "sha256:acf178e38cb943a950914dc69323845c572fef32ce5cb82f6877135395a67bf1", size = 27660, upload-time = "2026-08-25T23:01:35.796Z" },
+]
+
+[[package]]
+name = "harp-protocol"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/7d/48e9ba2d0b8182966a1cc8bba573201ef5256c57b2a172c32e071f34a087/harp_protocol-0.5.0.tar.gz", hash = "sha256:1109c82e4766ae579cec150da125540343dac9c33e8ac171b69f22b3485b1b75", size = 29322, upload-time = "2026-08-25T23:01:41.62Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/30/9c92a60a89fbc0360a456201931cfa8002e15c6cbb4a6b252e478eb3f834/harp_protocol-0.5.0-py3-none-any.whl", hash = "sha256:f06d3c69e31c5a5ac5d530006ad003ebf5e552de5eed521a83fb85526d68a152", size = 31172, upload-time = "2026-08-25T23:01:36.993Z" },
 ]
 
 [[package]]

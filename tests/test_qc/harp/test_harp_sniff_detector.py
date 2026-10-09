@@ -37,19 +37,17 @@ class MockHarpDevice:
         self.name = name
         self._registers = registers or {}
         self._create_default_registers()
-        self.device_reader = Mock(
-            device=Mock(
-                whoAmI=self.whoami,
-                firmwareVersion="1.2.3",
-                name=name,
-                registers={"WhoAmI": {}, "RawVoltage": {}, "RawVoltageDispatchRate": {}},
-            )
+        self.device_schema = Mock(
+            whoAmI=self.whoami,
+            firmwareVersion="1.2.3",
+            name=name,
+            registers={"WhoAmI": {}, "RawVoltage": {}, "RawVoltageDispatchRate": {}},
         )
 
     def _create_default_registers(self):
         if not self._registers:
             whoami_df = pd.DataFrame(
-                {"WhoAmI": [self.whoami], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds")
+                {"value": [self.whoami], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds")
             )
 
             time_index = np.linspace(0, 10, 1000)
@@ -57,13 +55,13 @@ class MockHarpDevice:
             signal = np.sin(2 * np.pi * 5 * time_index) + 0.1 * np.random.randn(len(time_index))
 
             raw_voltage_df = pd.DataFrame(
-                {"RawVoltage": signal, "MessageType": ["EVENT"] * len(time_index)},
+                {"value": signal, "message_type": ["Event"] * len(time_index)},
                 index=pd.Index(time_index, name="Seconds"),
             )
 
             # Create dispatch rate register showing 100 Hz sampling
             dispatch_rate_df = pd.DataFrame(
-                {"RawVoltageDispatchRate": [100], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds")
+                {"value": [100], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds")
             )
 
             self._registers = {
@@ -108,7 +106,7 @@ def mock_sniff_device_bad_rate():
     signal = np.sin(2 * np.pi * 5 * time_index) + 0.1 * np.random.randn(len(time_index))
 
     raw_voltage_df = pd.DataFrame(
-        {"RawVoltage": signal, "MessageType": ["EVENT"] * len(time_index)}, index=pd.Index(time_index, name="Seconds")
+        {"value": signal, "message_type": ["Event"] * len(time_index)}, index=pd.Index(time_index, name="Seconds")
     )
 
     device._registers["RawVoltage"] = MockHarpRegister("RawVoltage", raw_voltage_df)
@@ -131,7 +129,7 @@ def mock_sniff_device_bad_quality():
     signal = np.round(signal * 10) / 10
 
     raw_voltage_df = pd.DataFrame(
-        {"RawVoltage": signal, "MessageType": ["EVENT"] * len(time_index)}, index=pd.Index(time_index, name="Seconds")
+        {"value": signal, "message_type": ["Event"] * len(time_index)}, index=pd.Index(time_index, name="Seconds")
     )
 
     device._registers["RawVoltage"] = MockHarpRegister("RawVoltage", raw_voltage_df)

@@ -68,7 +68,7 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
         """
         super().setup_suite()
         data = self.harp_device["SensorData"].data.copy()
-        self.data = data[data["MessageType"] == "EVENT"]
+        self.data = data[data["message_type"] == "Event"]
 
     def test_sampling_rate(self):
         """Tests if the sampling rate of the environment sensor is within nominal values"""
@@ -81,12 +81,12 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
     def test_temperature_within_expected_limits(self):
         """Tests if the temperature sensor readings are within expected limits"""
         metrics = {}
-        metrics["min"] = min_temp = self.data["Temperature"].min()
-        metrics["max"] = max_temp = self.data["Temperature"].max()
-        metrics["mean"] = self.data["Temperature"].mean()
+        metrics["min"] = min_temp = self.data["temperature"].min()
+        metrics["max"] = max_temp = self.data["temperature"].max()
+        metrics["mean"] = self.data["temperature"].mean()
 
         fig = plt.figure(figsize=(10, 4))
-        plt.plot(self.data.index, self.data["Temperature"], label="Temperature (°C)")
+        plt.plot(self.data.index, self.data["temperature"], label="Temperature (°C)")
         plt.axhline(self.temperature_limit[0], color="r", linestyle="--", label="Min Expected Temp")
         plt.axhline(self.temperature_limit[1], color="g", linestyle="--", label="Max Expected Temp")
         plt.title("Temperature Over Time")
@@ -114,12 +114,12 @@ class HarpEnvironmentSensorTestSuite(HarpDeviceTypeTestSuite):
     def test_humidity_within_expected_limits(self):
         """Tests if the humidity sensor readings are within expected limits"""
         metrics = {}
-        metrics["min"] = min_humidity = self.data["Humidity"].min()
-        metrics["max"] = max_humidity = self.data["Humidity"].max()
-        metrics["mean"] = self.data["Humidity"].mean()
+        metrics["min"] = min_humidity = self.data["humidity"].min()
+        metrics["max"] = max_humidity = self.data["humidity"].max()
+        metrics["mean"] = self.data["humidity"].mean()
 
         fig = plt.figure(figsize=(10, 4))
-        plt.plot(self.data.index, self.data["Humidity"], label="Humidity (%)", color="orange")
+        plt.plot(self.data.index, self.data["humidity"], label="Humidity (%)", color="orange")
         plt.axhline(self.humidity_limit[0], color="r", linestyle="--", label="Min Expected Humidity")
         plt.axhline(self.humidity_limit[1], color="g", linestyle="--", label="Max Expected Humidity")
         plt.title("Humidity Over Time")

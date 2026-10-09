@@ -33,19 +33,17 @@ class MockHarpDevice:
         self.name = name
         self._registers = registers or {}
         self._create_default_registers()
-        self.device_reader = Mock(
-            device=Mock(
-                whoAmI=self.whoami,
-                firmwareVersion="1.2.3",
-                name=name,
-                registers={"WhoAmI": {}, "SensorData": {}, "SensorDataDispatchRate": {}},
-            )
+        self.device_schema = Mock(
+            whoAmI=self.whoami,
+            firmwareVersion="1.2.3",
+            name=name,
+            registers={"WhoAmI": {}, "SensorData": {}, "SensorDataDispatchRate": {}},
         )
 
     def _create_default_registers(self):
         if not self._registers:
             whoami_df = pd.DataFrame(
-                {"WhoAmI": [self.whoami], "MessageType": ["READ"]}, index=pd.Index([0.0], name="Seconds")
+                {"value": [self.whoami], "message_type": ["Read"]}, index=pd.Index([0.0], name="Seconds")
             )
             time_index = np.linspace(0, 10, 1000)
             np.random.seed(0)
@@ -61,9 +59,9 @@ class MockHarpDevice:
             )
             sensor_df = pd.DataFrame(
                 {
-                    "Temperature": temp,
-                    "Humidity": humidity,
-                    "MessageType": ["EVENT"] * len(time_index),
+                    "temperature": temp,
+                    "humidity": humidity,
+                    "message_type": ["Event"] * len(time_index),
                 },
                 index=pd.Index(time_index, name="Seconds"),
             )
@@ -109,7 +107,7 @@ def mock_env_sensor_device_bad_temp():
         HarpEnvironmentSensorTestSuite.humidity_limit[0], HarpEnvironmentSensorTestSuite.humidity_limit[1], 1000
     )
     sensor_df = pd.DataFrame(
-        {"Temperature": temp, "Humidity": humidity, "MessageType": ["EVENT"] * 1000},
+        {"temperature": temp, "humidity": humidity, "message_type": ["Event"] * 1000},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["SensorData"] = MockHarpRegister("SensorData", sensor_df)
@@ -138,7 +136,7 @@ def mock_env_sensor_device_bad_humidity():
         ]
     )
     sensor_df = pd.DataFrame(
-        {"Temperature": temp, "Humidity": humidity, "MessageType": ["EVENT"] * 1000},
+        {"temperature": temp, "humidity": humidity, "message_type": ["Event"] * 1000},
         index=pd.Index(time_index, name="Seconds"),
     )
     device._registers["SensorData"] = MockHarpRegister("SensorData", sensor_df)
@@ -150,8 +148,8 @@ class TestHarpEnvironmentSensorTestSuite:
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
         suite.setup_suite()
         assert suite.harp_device == mock_env_sensor_device
-        assert "Temperature" in suite.data.columns
-        assert "Humidity" in suite.data.columns
+        assert "temperature" in suite.data.columns
+        assert "humidity" in suite.data.columns
 
     def test_sampling_rate(self, mock_env_sensor_device):
         suite = HarpEnvironmentSensorTestSuite(mock_env_sensor_device)
